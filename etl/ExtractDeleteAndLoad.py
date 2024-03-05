@@ -228,7 +228,7 @@ class ExtractDeleteAndLoad(object):
                     **kwargs_eval,
                 )
             else:
-                data = read_sql_data(
+                data = sql_read_data(
                     (
                         eval(self.configs_dict["download_sql_stmts"][key])
                         if "{" in self.configs_dict["download_sql_stmts"][key]
@@ -302,7 +302,7 @@ class ExtractDeleteAndLoad(object):
                         encoding="utf-8",
                     )
                     # Copy data from S3 to database
-                    copy_sql_data(
+                    sql_copy_data(
                         (
                             eval(self.configs_dict["s3_file_paths_dict"][key])
                             if "{" in self.configs_dict["s3_file_paths_dict"][key]
@@ -319,7 +319,7 @@ class ExtractDeleteAndLoad(object):
                     )
                 else:
                     # Upload data to database
-                    upload_sql_data(
+                    sql_upload_data(
                         upload_data,
                         self.configs_dict["upload_schemas_dict"][key],
                         self.configs_dict["upload_tables_dict"][key],
