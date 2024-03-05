@@ -3,9 +3,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 [project]
 name = "GenETL"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
-  { name="XxZeroGravityxX", email="14165536+XxZeroGravityxX@users.noreply.github.com" },
+  { name="XxZeroGravityxX", email="XxZeroGravityxX@users.noreply.github.com" },
 ]
 description = "A generic ETL routines module for Python"
 readme = "README.md"
