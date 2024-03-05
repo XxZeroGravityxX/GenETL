@@ -1,0 +1,892 @@
+# Import modules
+import os
+import sys
+import traceback
+import pyspark as ps
+import pyodbc
+import redshift_connector
+import oracledb
+import numpy as np
+import pandas as pd
+import datetime as dt
+import multiprocessing
+
+# Import submodules
+from sqlalchemy import create_engine
+
+# Import custom modules
+from .execution import mk_err_logs, mk_texec_logs, parallel_execute
+
+
+def create_sqlalchemy_engine(
+    conn_dict: dict,
+    custom_conn_str=None,
+    connect_args={},
+):
+    """
+    Function to create sqlalchemy enginefrom connection dictionary.
+
+    conn_dict :                 Dictionary with server, database, uid and pwd information.
+    custom_conn_str :           String with custom connection string.
+    connect_args :              Dictionary with extra arguments for connection.
+    """
+
+    if custom_conn_str:
+        ## Create engine
+        engine = create_engine(custom_conn_str, connect_args=connect_args)
+    else:
+        ## Set extra configuration for connection
+
+        # Engine prefix
+        if "myengine_prefix" not in conn_dict.keys():
+            conn_dict["myengine_prefix"] = "mssql+pyodbc"
+        # Port
+        if "myport" not in conn_dict.keys():
+            conn_dict["myport"] = 1433
+
+        ## Create engine
+
+        engine = create_engine(
+            f'{conn_dict["myengine_prefix"]}://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/{conn_dict["mydatabase"]}'
+        )
+
+    return engine
+
+
+def create_redshift_engine(conn_dict: dict):
+    """
+    Function to create redshift engine from connection dictionary.
+    """
+
+    ## Set extra configuration for connection
+
+    # Port
+    if "myport" not in conn_dict.keys():
+        conn_dict["myport"] = 5439
+    # SSL mode
+    if "mysslmode" not in conn_dict.keys():
+        conn_dict["mysslmode"] = "verify-ca"
+    # Connect args
+    connect_args = {"sslmode": conn_dict["mysslmode"]}
+
+    ## Create custom connection string
+    custom_conn_str = f'redshift+redshift_connector://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/{conn_dict["mydatabase"]}'
+
+    ## Create engine
+    engine = create_sqlalchemy_engine(
+        conn_dict, custom_conn_str=custom_conn_str, connect_args=connect_args
+    )
+
+    return engine
+
+
+def create_oracle_engine(conn_dict: dict):
+    """
+    Function to create oracle engine from connection dictionary.
+    """
+
+    ## Set extra configuration for connection
+
+    ## Start oracle client
+    try:
+        oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])  # Windows
+    except:
+        try:
+            oracledb.init_oracle_client()  # Linux
+        except:
+            pass  # Oracle client already started or not needed
+    # Port
+    if "myport" not in conn_dict.keys():
+        conn_dict["myport"] = 1521
+
+    ## Create custom connection string
+    custom_conn_str = f'oracle+cx_oracle://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/?service_name={conn_dict["mydatabase"]}'
+
+    ## Create engine
+    engine = create_sqlalchemy_engine(conn_dict, custom_conn_str=custom_conn_str)
+
+    return engine
+
+
+def create_mysql_engine(conn_dict: dict):
+    """
+    Function to create mysql engine from connection dictionary.
+    """
+
+    ## Set extra configuration for connection
+
+    # Port
+    if "myport" not in conn_dict.keys():
+        conn_dict["myport"] = 3306
+    # Charset
+    if "mycharset" not in conn_dict.keys():
+        conn_dict["mycharset"] = "utf8mb4"
+    # Connect args
+    connect_args = {
+        "charset": conn_dict["mycharset"],
+    }
+
+    ## Create custom connection string
+    custom_conn_str = f'mysql+pymysql://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/{conn_dict["mydatabase"]}'
+
+    ## Create engine
+    engine = create_sqlalchemy_engine(
+        conn_dict,
+        custom_conn_str=custom_conn_str,
+        connect_args=connect_args,
+    )
+
+    return engine
+
+
+def create_sqlalchemy_conn(conn_dict: dict, custom_conn_str=None):
+    """
+    Function to create sqlalchemy connector from connection dictionary.
+    """
+    ## Create engine
+    engine = create_sqlalchemy_engine(conn_dict, custom_conn_str=custom_conn_str)
+
+    print("Connecting to database...")
+    ## Make connection
+    conn = engine.connect()
+
+    return conn
+
+
+def create_redshift_conn(conn_dict: dict):
+    """
+    Function to create redshift connector from connection dictionary.
+    """
+
+    ## Set extra configuration for connection
+
+    # Port
+    if "myport" not in conn_dict.keys():
+        conn_dict["myport"] = 5439
+
+    ## Create connector
+
+    conn = redshift_connector.connect(
+        host=conn_dict["myserver"],
+        database=conn_dict["mydatabase"],
+        port=conn_dict["myport"],
+        user=conn_dict["myusername"],
+        password=conn_dict["mypassword"],
+    )
+
+    return conn
+
+
+def create_oracle_conn(conn_dict: dict):
+    """
+    Function to create oracle connector from connection dictionary.
+    """
+
+    ## Start oracle client
+    try:
+        oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])  # Windows
+    except:
+        try:
+            oracledb.init_oracle_client()  # Linux
+        except:
+            pass  # Oracle client already started or not needed
+
+    ## Create connector
+    conn = oracledb.connect(
+        user=conn_dict["myusername"],
+        password=conn_dict["mypassword"],
+        dsn=f'{conn_dict["myserver"]}/{conn_dict["mydatabase"]}',
+    )
+
+    return conn
+
+
+def create_pyodbc_conn(conn_dict: dict):
+    """
+    Function to create pyodbc connector from connection dictionary.
+    """
+
+    ## Set driver for connection
+
+    if "mydriver" not in conn_dict.keys():
+        conn_dict["mydriver"] = "{ODBC Driver 17 for SQL Server}"  # '{SQL Server}'
+
+    ## Create string for connection
+
+    str_conn = (
+        f'DRIVER={conn_dict["mydriver"]};'
+        + f'SERVER={conn_dict["myserver"]};'
+        + f'DATABASE={conn_dict["mydatabase"]};'
+        + f'UID={conn_dict["myusername"]};'
+        + f'PWD={conn_dict["mypassword"]}'
+    )
+
+    ## Create connector
+    conn = pyodbc.connect(str_conn)
+
+    return conn
+
+
+def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc"):
+    """
+    Function to execute sql statements.
+
+    sql_stmt :                  String with sql statement to execute.
+    conn_dict :                 Dictionary with server, database, uid and pwd information.
+    mode :                      String with mode to use. Options are 'pyodbc' and 'redshift'.
+    """
+
+    ## Set mode of connection
+
+    if mode == "pyodbc":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_pyodbc_conn(conn_dict)
+
+    elif mode == "redshift":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_redshift_conn(conn_dict)
+
+    elif mode == "sqlalchemy":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_sqlalchemy_conn(conn_dict)
+
+    elif mode == "oracledb":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_oracle_conn(conn_dict)
+
+    print("Executing statement...")
+    ## Execute statment
+
+    with sql_conn:
+        # Initialize cursor
+        cursor = sql_conn.cursor()
+        # Execute statement
+        cursor.execute(sql_stmt)
+        # Get number of rows affected
+        response_rows_affected = cursor.rowcount
+        # Commit changes
+        sql_conn.commit()
+
+    return response_rows_affected  # Response with number of rows affected
+
+
+def to_sql_executemany(
+    data,
+    conn_dict,
+    schema,
+    table_name,
+    mode,
+):
+    """
+    Function to upload data to database table with sqlalchemy in parallel.
+
+    data :                      Pandas dataframe with data to upload.
+    conn_dict :                 Dictionary with server, database, uid and pwd information.
+    schema :                    String with schema name.
+    table_name :                String with table name to upload data.
+    mode :                      String with mode to use. Options are 'pyodbc' and 'redshift'.
+    """
+
+    ## Set mode of connection
+
+    if mode == "pyodbc":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_pyodbc_conn(conn_dict)
+
+    elif mode == "redshift":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_redshift_conn(conn_dict)
+
+    elif mode == "sqlalchemy":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_sqlalchemy_conn(conn_dict)
+
+    elif mode == "oracledb":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_oracle_conn(conn_dict)
+
+    print("Executing statement...")
+    ## Execute statment
+
+    # Create sql statement
+    sql_stmt = f"INSERT INTO {schema}.{table_name} ({','.join([col for col in data.columns])}) VALUES ({','.join([f':{col}' for col in data.columns])})"
+    # Format data into sequence
+    data = [tuple(x) for x in data.to_numpy()]
+    # Make query
+    with sql_conn:
+        # Initialize cursor
+        cursor = sql_conn.cursor()
+        # Execute statement
+        cursor.executemany(sql_stmt, data)
+        # Commit changes
+        sql_conn.commit()
+
+    return len(
+        data
+    )  # Response with number of rows inserted (should be equal to len(data))
+
+
+def to_sql_redshift_spark(data, schema, table_name, conn_dict, mode="append"):
+    """
+    Function to upload data to redshift with spark.
+
+    data :                      Pandas dataframe with data to upload.
+    schema :                    String with schema name.
+    table_name :                String with table name to upload data.
+    conn_dict :                 Dictionary with server, database, uid and pwd information.
+    mode :                      String with mode to use. Options are 'append', 'overwrite', 'ignore' and 'error'.
+    """
+
+    # Create spark session
+    spark_session = (
+        ps.sql.SparkSession.builder.appName("UploadDataPipeline")
+        .enableHiveSupport()
+        .getOrCreate()
+    )
+    # Create spark dataframe
+    spark_df = spark_session.createDataFrame(data)
+    # Upload data to redshift (options configuration from https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html#data-source-option)
+    spark_df.write.format("io.github.spark_redshift_community.spark.redshift").option(
+        "url",
+        f'jdbc:redshift://{conn_dict["mydatabase"]}',
+    ).option("dbtable", f"{schema}.{table_name}").option(
+        "user", conn_dict["myusername"]
+    ).option(
+        "password", conn_dict["mypassword"]
+    ).option(
+        "tempdir", "s3://tmp-spark/"
+    ).mode(
+        mode
+    ).save()
+    # Get response with number of rows inserted
+    response_rows_affected = spark_df.count()
+
+    return response_rows_affected
+
+
+def parallel_to_sql(
+    df,
+    table_name,
+    schema,
+    mode,
+    conn_dict,
+    custom_conn_str,
+    connect_args,
+    chunksize,
+    method,
+    dtypes_dict,
+    spark_mode="append",
+):
+    """
+    Function to upload data to database table with sqlalchemy in parallel.
+
+    df :                        Pandas dataframe with data to upload.
+    table_name :                String with table name to upload data.
+    engine :                    SQLAlchemy engine.
+    schema :                    String with schema name.
+    mode :                      String with mode to use. Options are 'sqlalchemy', 'redshift' and 'oracledb.
+    conn_dict :                 Dictionary with server, database, uid and pwd information.
+    custom_conn_str :           String with custom connection string.
+    connect_args :              Dictionary with extra arguments for connection.
+    chunksize :                 Integer with chunksize to use.
+    method :                    String with method to use ('multi', 'execute_many', 'spark' or 'single').
+    dtypes_dict :               Dictionary with dtypes to use for upload.
+    spark_mode :                String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
+    """
+
+    print("Connecting to database...")
+    ## Create engine connection
+
+    if mode.lower() == "sqlalchemy":
+        engine = create_sqlalchemy_engine(
+            conn_dict,
+            custom_conn_str=custom_conn_str,
+            connect_args=connect_args,
+        )
+    elif mode.lower() == "redshift":
+        engine = create_redshift_engine(conn_dict)
+    elif mode.lower() == "oracledb":
+        engine = create_oracle_engine(conn_dict)
+
+    print("Uploading data...")
+    ## Upload data
+
+    # Initialize response rows affected variable
+    tot_response_rows_affected = 0
+    # Upload data to database
+    if method.lower() == "multi":
+        try:
+            print("Trying to upload data with 'multi' method...")
+            response_rows_affected = df.to_sql(
+                table_name,
+                engine,
+                schema=schema,
+                if_exists="append",
+                index=False,
+                chunksize=chunksize,
+                method=method,
+                dtype=dtypes_dict,
+            )
+        except Exception as e:
+            print(f"{type(e)} - {e}")
+            try:
+                print(
+                    "Uploading data with 'multi' method failed. Trying to upload data with 'execute many' method..."
+                )
+                response_rows_affected = to_sql_executemany(
+                    df, conn_dict, schema, table_name, mode
+                )
+            except Exception as e:
+                print(f"{type(e)} - {e}")
+                print(
+                    "Uploading data with 'execute many' method failed. Trying to upload data with 'single' method..."
+                )
+                response_rows_affected = df.to_sql(
+                    table_name,
+                    engine,
+                    schema=schema,
+                    if_exists="append",
+                    index=False,
+                    chunksize=chunksize,
+                    dtype=dtypes_dict,
+                )
+    elif method.lower() == "execute_many":
+        try:
+            print("Trying to upload data with 'execute many' method...")
+            response_rows_affected = to_sql_executemany(
+                df, conn_dict, schema, table_name, mode
+            )
+        except Exception as e:
+            print(f"{type(e)} - {e}")
+            print(
+                "Uploading data with 'execute many' method failed. Trying to upload data with 'single' method..."
+            )
+            response_rows_affected = df.to_sql(
+                table_name,
+                engine,
+                schema=schema,
+                if_exists="append",
+                index=False,
+                chunksize=chunksize,
+                dtype=dtypes_dict,
+            )
+    elif method.lower() == "spark":
+        try:
+            print("Trying to upload data with 'spark' method...")
+            response_rows_affected = to_sql_redshift_spark(
+                df, schema, table_name, conn_dict, mode=spark_mode
+            )
+        except Exception as e:
+            print(f"{type(e)} - {e}")
+            print(
+                "Uploading data with 'spark' method failed. Trying to upload data with 'single' method..."
+            )
+            response_rows_affected = df.to_sql(
+                table_name,
+                engine,
+                schema=schema,
+                if_exists="append",
+                index=False,
+                chunksize=chunksize,
+                dtype=dtypes_dict,
+            )
+    elif method.lower() == "single":
+        print("Trying to upload data with 'single' method...")
+        response_rows_affected = df.to_sql(
+            table_name,
+            engine,
+            schema=schema,
+            if_exists="append",
+            index=False,
+            chunksize=chunksize,
+            dtype=dtypes_dict,
+        )
+    else:
+        print("Wrong selected method. Aborting...")
+        response_rows_affected = 0
+
+    # Update response rows affected
+    tot_response_rows_affected += response_rows_affected
+
+    return tot_response_rows_affected
+
+
+def sql_read_data(
+    sql_stmt,
+    conn_dict,
+    mode="sqlalchemy",
+    custom_conn_str=None,
+    connect_args={},
+    name=None,
+    max_n_try=3,
+):
+    """
+    Function to read sql statements.
+
+    sql_stmt :            SQL statement to execute.
+    conn_dict :            Dictionary with server, database, uid and pwd information.
+    mode :                 Mode to use. Options are 'sqlalchemy', 'redshift' and 'oracledb'.
+    custom_conn_str :      Custom connection string.
+    connect_args :         Custom connection argument.
+    name :                 Name to use for print statements.
+    max_n_try :            Maximum number of tries to execute the query.
+    """
+
+    ## Read data
+
+    t_i = dt.datetime.now()
+    n_try = 0
+    succeeded = False
+    while n_try < max_n_try and not succeeded:
+        try:
+            # Create engine
+            if mode == "oracledb":
+                engine_obj = create_oracle_engine(conn_dict)
+            elif mode == "redshift":
+                engine_obj = create_redshift_engine(conn_dict)
+            elif mode == "sqlalchemy":
+                engine_obj = create_sqlalchemy_engine(
+                    conn_dict,
+                    custom_conn_str=custom_conn_str,
+                    connect_args=connect_args,
+                )
+            # Dispose connections
+            engine_obj.dispose()
+            # Read sql statement
+            df = pd.read_sql(sql_stmt, engine_obj)
+            # Change status
+            succeeded = True
+        except Exception as e:
+            # Initialize empty dataframe
+            df = pd.DataFrame()
+            # Set log path
+            log_file_path = "logs"
+            # Set log file name
+            log_file_name = "read_data"
+            # Create logs folder
+            os.makedirs(log_file_path)
+            # Create logs
+            mk_err_logs(
+                log_file_path,
+                log_file_name,
+                sys._getframe().f_code.co_name + " -> " + name,
+                traceback.format_exception(
+                    sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+                )[-1],
+                mode="summary",
+            )
+            mk_err_logs(
+                log_file_path,
+                log_file_name,
+                sys._getframe().f_code.co_name + " -> " + name,
+                "".join(
+                    traceback.format_exception(
+                        sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+                    )
+                ),
+                mode="detailed",
+            )
+            # Change status
+            succeeded = False
+        # Update number of tries
+        n_try += 1
+    t_e = dt.datetime.now()
+    print(f"Time elapsed in 'download' process {name} -> {df.shape} = {t_e - t_i}")
+
+    ## Create time execution logs
+
+    # Set log path
+    log_file_path = "logs"
+    # Set log file name
+    log_file_name = "download_data_texec"
+    # Create logs folder
+    os.makedirs(log_file_path)
+    # Create logs
+    mk_texec_logs(
+        log_file_path,
+        log_file_name,
+        sys._getframe().f_code.co_name + " -> " + name,
+        t_e - t_i,
+        obs=f"Shape of object = {df.shape}",
+    )
+
+    return df
+
+
+def sql_upload_data(
+    df,
+    schema,
+    table_name,
+    conn_dict,
+    mode="sqlalchemy",
+    custom_conn_str=None,
+    connect_args={},
+    name=None,
+    chunksize=1000,
+    method="multi",
+    max_n_try=3,
+    dtypes_dict={},
+    n_jobs=-1,
+    spark_mode="append",
+):
+    """
+    Function to upload data to database table with sqlalchemy.
+
+    df :                    Dataframe to upload.
+    schema :                Schema to upload data to.
+    table_name :            Table name to upload data to.
+    conn_dict :             Dictionarie with server, database, uid and pwd information.
+    mode :                  String with mode to use. Options are 'sqlalchemy' and 'redshift'.
+    custom_conn_str :       String with custom connection string.
+    connect_args :          Dictionarie with connection arguments.
+    name :                  Name to use for print statements.
+    chunksize :             Integer with chunksize to use for upload.
+    method :                String with method to use for upload ('multi', 'execute_many' or 'single').
+    max_n_try :             Integer with maximum number of tries to upload data.
+    dtypes_dict :           Dictionarie with dtypes to use for upload.
+    n_jobs :                Integer with number of jobs to use for parallelization.
+    spark_mode :            String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
+    """
+
+    ## Set number of jobs
+
+    if n_jobs == -1:
+        n_jobs = multiprocessing.cpu_count()
+
+    ## Upload data
+
+    t_i = dt.datetime.now()
+    n_try = 0
+    succeeded = False
+    while n_try < max_n_try and not succeeded:
+        try:
+            # Show shape of dataframe
+            print(f"Shape of query dataframe -> {name} = {df.shape}")
+            # Upload dataframe in parallel
+            if not df.empty:
+                # Parallelize only if dataframe is large enough (avoid locking up the system for small dataframes)
+                if df.shape[0] / chunksize >= n_jobs:
+                    print("Uploading chunked data in parallel...")
+                    # Split dataframe in smaller chunks
+                    df_split_iter = [
+                        x for x in np.array_split(df, n_jobs) if not x.empty
+                    ]
+                    # Create iterators
+                    table_name_iter = [table_name for x in df_split_iter]
+                    schema_iter = [schema for x in df_split_iter]
+                    mode_iter = [mode for x in df_split_iter]
+                    conn_dict_iter = [conn_dict for x in df_split_iter]
+                    custom_conn_str_iter = [custom_conn_str for x in df_split_iter]
+                    connect_args_iter = [connect_args for x in df_split_iter]
+                    chunksize_iter = [chunksize for x in df_split_iter]
+                    method_iter = [method for x in df_split_iter]
+                    dtypes_iter = [dtypes_dict for x in df_split_iter]
+                    spark_mode_iter = [spark_mode for x in df_split_iter]
+                    # Get results
+                    parallel_results = parallel_execute(
+                        parallel_to_sql,
+                        df_split_iter,
+                        table_name_iter,
+                        schema_iter,
+                        mode_iter,
+                        conn_dict_iter,
+                        custom_conn_str_iter,
+                        connect_args_iter,
+                        chunksize_iter,
+                        method_iter,
+                        dtypes_iter,
+                        spark_mode_iter,
+                    )
+
+                    # Concatenate results
+                    response_rows_affected = 0
+                    for r in parallel_results:
+                        response_rows_affected += r
+                else:
+                    print("Uploading whole data...")
+                    response_rows_affected = parallel_to_sql(
+                        df,
+                        table_name,
+                        schema,
+                        mode,
+                        conn_dict,
+                        custom_conn_str,
+                        connect_args,
+                        chunksize,
+                        method,
+                        dtypes_dict,
+                        spark_mode,
+                    )
+            else:
+                # Set response rows affected to 0
+                response_rows_affected = 0
+            # Show rows affected
+            print(f"Affected number of rows -> {name} = {response_rows_affected}")
+            # Change status
+            succeeded = True
+        except Exception as e:
+            # Set log path
+            log_file_path = "logs"
+            # Set log file name
+            log_file_name = "upload_data"
+            # Create logs folder
+            os.makedirs(log_file_path, exist_ok=True)
+            # Create logs
+            mk_err_logs(
+                log_file_path,
+                log_file_name,
+                sys._getframe().f_code.co_name + " -> " + name,
+                traceback.format_exception(
+                    sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+                )[-1],
+                mode="summary",
+            )
+            mk_err_logs(
+                log_file_path,
+                log_file_name,
+                sys._getframe().f_code.co_name + " -> " + name,
+                "".join(
+                    traceback.format_exception(
+                        sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+                    )
+                ),
+                mode="detailed",
+            )
+            # Set response rows affected to 0
+            response_rows_affected = 0
+            # Change status
+            succeeded = False
+        # Update number of tries
+        n_try += 1
+    t_e = dt.datetime.now()
+    print(f"Time elapsed in 'upload' process {name} -> {df.shape} = {t_e - t_i}")
+
+    ## Create time execution logs
+
+    # Set log path
+    log_file_path = "logs"
+    # Set log file name
+    log_file_name = "upload_data_texec"
+    # Create logs folder
+    os.makedirs(log_file_path, exist_ok=True)
+    # Create logs
+    mk_texec_logs(
+        log_file_path,
+        log_file_name,
+        sys._getframe().f_code.co_name + " -> " + name,
+        t_e - t_i,
+        obs=f"Shape of object = {df.shape}",
+    )
+
+    return response_rows_affected  # Response with number of rows affected
+
+
+def sql_copy_data(
+    s3_file_path,
+    schema,
+    table_name,
+    conn_dict,
+    access_key,
+    secret_access_key,
+    region,
+    delimiter=",",
+    header_row=1,
+    type_format="csv",
+    name=None,
+    max_n_try=3,
+):
+    """
+    Function to copy data to Redshift database from S3 bucket.
+
+    s3_file_path:               String with S3 file paths to copy data from.
+    schema:                     Schema to upload data to.
+    table_name:                 Table name to upload data to.
+    conn_dict:                  Dictionarie with server, database, uid and pwd information.
+    access_key:                 String with access keys for S3 bucket.
+    secret_access_key:          String with secret access keys for S3 bucket.
+    region:                     String with regions for S3 bucket.
+    delimiter:                  String with delimiter to use for copy command. Default is ','.
+    header_row:                 Integer with header row to ignore. Default is 1.
+    type_format:                String with type format to use for copy command. Default is 'csv'.
+    name:                       Name to use for print statements.
+    max_n_try:                  Integer with maximum number of tries to upload data.
+    """
+
+    ## Copy data
+
+    t_i = dt.datetime.now()
+    n_try = 0
+    succeeded = False
+    while n_try < max_n_try and not succeeded:
+        try:
+            # Create sql statement
+            sql_stmt = f"COPY {schema}.{table_name} FROM '{s3_file_path}' ACCESS_KEY_ID '{access_key}' SECRET_ACCESS_KEY '{secret_access_key}' REGION '{region}' DELIMITER '{delimiter}' IGNOREHEADER {header_row} EMPTYASNULL FORMAT AS {type_format.upper()};"
+            # Execute copy command
+            response_rows_affected = sql_exec_stmt(sql_stmt, conn_dict, mode="redshift")
+            # Show rows affected
+            print(f"Affected number of rows -> {name} = {response_rows_affected}")
+            # Change status
+            succeeded = True
+        except Exception as e:
+            # Set log path
+            log_file_path = "logs"
+            # Set log file name
+            log_file_name = "copy_data"
+            # Create logs folder
+            os.makedirs(log_file_path, exist_ok=True)
+            # Create logs
+            mk_err_logs(
+                log_file_path,
+                log_file_name,
+                sys._getframe().f_code.co_name + " -> " + name,
+                traceback.format_exception(
+                    sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+                )[-1],
+                mode="summary",
+            )
+            mk_err_logs(
+                log_file_path,
+                log_file_name,
+                sys._getframe().f_code.co_name + " -> " + name,
+                "".join(
+                    traceback.format_exception(
+                        sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+                    )
+                ),
+                mode="detailed",
+            )
+            # Set response rows affected to 0
+            response_rows_affected = 0
+            # Change status
+            succeeded = False
+        # Update number of tries
+        n_try += 1
+    t_e = dt.datetime.now()
+    print(f"Time elapsed in 'copy' process {name} = {t_e - t_i}")
+
+    ## Create time execution logs
+
+    # Set log path
+    log_file_path = "logs"
+    # Set log file name
+    log_file_name = "copy_data_texec"
+    # Create logs folder
+    os.makedirs(log_file_path, exist_ok=True)
+    # Create logs
+    mk_texec_logs(
+        log_file_path,
+        log_file_name,
+        sys._getframe().f_code.co_name + " -> " + name,
+        t_e - t_i,
+        obs="Copy data from S3 bucket to database table",
+    )
+
+    return response_rows_affected  # Response with number of rows affected
