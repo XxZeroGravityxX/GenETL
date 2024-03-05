@@ -1,2 +1,2 @@
-# ETL_module
-Repository for ETL module routines on python.
+# GenETL
+Repository for generic ETL routines on python.
