@@ -15,7 +15,7 @@ import multiprocessing
 from sqlalchemy import create_engine
 
 # Import custom modules
-from .execution import mk_err_logs, mk_texec_logs, parallel_execute
+from ETL_tools.execution import mk_err_logs, mk_texec_logs, parallel_execute
 
 
 def create_sqlalchemy_engine(
