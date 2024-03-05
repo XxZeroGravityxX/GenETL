@@ -5,8 +5,8 @@ import pandas as pd
 import sqlalchemy
 
 # Import custom modules
-from ETL_tools.sql import sql_exec_stmt, sql_read_data, sql_upload_data, sql_copy_data
-from ETL_tools.aws import dynamodb_read_data, s3_upload_csv
+from etl_tools.sql import sql_exec_stmt, sql_read_data, sql_upload_data, sql_copy_data
+from etl_tools.aws import dynamodb_read_data, s3_upload_csv
 
 
 class ExtractDeleteAndLoad(object):

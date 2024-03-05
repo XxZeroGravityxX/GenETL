@@ -15,6 +15,5 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-
 [project.urls]
-Homepage = "https://github.com/XxZeroGravityxX/ETL_module"
+Homepage = "https://github.com/XxZeroGravityxX/GenETL"
