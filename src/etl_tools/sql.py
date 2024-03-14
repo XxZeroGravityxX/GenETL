@@ -608,7 +608,7 @@ def sql_read_data(
     # Set log file name
     log_file_name = "download_data_texec"
     # Create logs folder
-    os.makedirs(log_file_path)
+    os.makedirs(log_file_path, exist_ok=True)
     # Create logs
     mk_texec_logs(
         log_file_path,
