@@ -230,9 +230,9 @@ class ExtractDeleteAndLoad(object):
             else:
                 data = sql_read_data(
                     (
-                        eval(self.configs_dict["download_sql_stmts"][key])
-                        if "{" in self.configs_dict["download_sql_stmts"][key]
-                        else self.configs_dict["download_sql_stmts"][key]
+                        eval(self.configs_dict["download_sql_stmts_dict"][key])
+                        if "{" in self.configs_dict["download_sql_stmts_dict"][key]
+                        else self.configs_dict["download_sql_stmts_dict"][key]
                     ),
                     conn_dict,
                     mode=conn_type,
