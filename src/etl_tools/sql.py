@@ -572,7 +572,7 @@ def sql_read_data(
             # Set log file name
             log_file_name = "read_data"
             # Create logs folder
-            os.makedirs(log_file_path)
+            os.makedirs(log_file_path, exist_ok=True)
             # Create logs
             mk_err_logs(
                 log_file_path,
