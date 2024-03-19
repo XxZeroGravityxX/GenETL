@@ -136,7 +136,7 @@ class ExtractDeleteAndLoad(object):
         for key, val in kwargs.items():
             locals()[key] = val
         # Iterate over delete statements
-        for key, stmt in self.configs_dict["delete_sql_stmts_dict"].items():
+        for key in self.configs_dict["delete_sql_stmts_dict"].keys():
             if "delete_dates_dict" in self.configs_dict.keys():
                 # Start date to ingest data from
                 global start_date
@@ -188,7 +188,13 @@ class ExtractDeleteAndLoad(object):
             print(f"Deleting data for {key}...")
             try:
                 sql_exec_stmt(
-                    eval(stmt) if "{" in stmt else stmt, conn_dict, mode=conn_type
+                    (
+                        eval(self.configs_dict["delete_sql_stmts_dict"][key])
+                        if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                        else self.configs_dict["delete_sql_stmts_dict"][key]
+                    ),
+                    conn_dict,
+                    mode=conn_type,
                 )
             except Exception as e:
                 print(f"Error deleting data: {type(e)} - {e}")
@@ -210,7 +216,7 @@ class ExtractDeleteAndLoad(object):
                 "Truncate configurations are not set! Please set them first."
             )
         # Iterate over truncate statements
-        for key, stmt in self.configs_dict["truncate_sql_stmts_dict"].items():
+        for (key,) in self.configs_dict["truncate_sql_stmts_dict"].keys():
             # Get connection suffix
             conn_suff = self.conn_suff_dict["truncate"][key]
             # Get connection type
@@ -221,7 +227,13 @@ class ExtractDeleteAndLoad(object):
             print(f"Truncating data for {key}...")
             try:
                 sql_exec_stmt(
-                    eval(stmt) if "{" in stmt else stmt, conn_dict, mode=conn_type
+                    (
+                        eval(self.configs_dict["truncate_sql_stmts_dict"][key])
+                        if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
+                        else self.configs_dict["truncate_sql_stmts_dict"][key]
+                    ),
+                    conn_dict,
+                    mode=conn_type,
                 )
             except Exception as e:
                 print(f"Error truncating data: {type(e)} - {e}")
@@ -245,7 +257,11 @@ class ExtractDeleteAndLoad(object):
         # Initialize raw data
         self.raw_data = {}
         # Iterate over tables/statements
-        for key, tb_name in self.configs_dict["download_table_names_dict"].items():
+        for key in (
+            self.configs_dict["download_table_names_dict"].keys()
+            if "download_table_names_dict" in self.configs_dict.keys()
+            else self.configs_dict["download_sql_stmts_dict"].keys()
+        ):
             if "download_dates_dict" in self.configs_dict.keys():
                 # Start date to ingest data from
                 global start_date
@@ -309,7 +325,7 @@ class ExtractDeleteAndLoad(object):
             # Read data
             if conn_type == "dynamodb":
                 data = dynamodb_read_data(
-                    tb_name,
+                    self.configs_dict["download_table_names_dict"][key],
                     self.connections_dict[f"aws_access_key_id_{conn_suff}"],
                     self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
                     self.connections_dict[f"region_name_{conn_suff}"],
@@ -334,7 +350,11 @@ class ExtractDeleteAndLoad(object):
                         if "download_connect_args_dict" in self.configs_dict.keys()
                         else {}
                     ),
-                    name=tb_name,
+                    name=(
+                        self.configs_dict["download_table_names_dict"][key]
+                        if "download_table_names_dict" in self.configs_dict.keys()
+                        else key
+                    ),
                     max_n_try=(
                         self.configs_dict["max_n_try"]
                         if "max_n_try" in self.configs_dict.keys()
@@ -367,7 +387,7 @@ class ExtractDeleteAndLoad(object):
                 "Upload configurations are not set! Please set them first."
             )
         # Iterate over tables/statements
-        for key, tb_name in self.configs_dict["upload_tables_dict"].items():
+        for key in self.configs_dict["upload_tables_dict"].keys():
             # Set data to upload
             upload_data = data_to_upload[key]
             # Get connection suffix
