@@ -138,6 +138,12 @@ class ExtractDeleteAndLoad(object):
         # Iterate over delete statements
         for key in self.configs_dict["delete_sql_stmts_dict"].keys():
             print(f"Deleting data for {key}...")
+            # Set extra variables as global variables
+            if "delete_extra_vars_dict" in self.configs_dict.keys():
+                for ex_key, ex_val in self.configs_dict["delete_extra_vars_dict"][
+                    key
+                ].items():
+                    globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get delete statement
             stmt = (
                 eval(self.configs_dict["delete_sql_stmts_dict"][key])
@@ -145,12 +151,6 @@ class ExtractDeleteAndLoad(object):
                 else self.configs_dict["delete_sql_stmts_dict"][key]
             )
             print(f"     Delete query: {stmt}")
-            # Set extra variables as global variables
-            if "delete_extra_vars_dict" in self.configs_dict.keys():
-                for ex_key, ex_val in self.configs_dict["delete_extra_vars_dict"][
-                    key
-                ].items():
-                    globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
             # Get connection type
