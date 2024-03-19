@@ -137,11 +137,19 @@ class ExtractDeleteAndLoad(object):
             globals()[key] = val
         # Iterate over delete statements
         for key in self.configs_dict["delete_sql_stmts_dict"].keys():
+            print(f"Deleting data for {key}...")
+            # Get delete statement
+            stmt = (
+                eval(self.configs_dict["delete_sql_stmts_dict"][key])
+                if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                else self.configs_dict["delete_sql_stmts_dict"][key]
+            )
+            print(f"     Delete query: {stmt}")
             # Set extra variables as global variables
             if "delete_extra_vars_dict" in self.configs_dict.keys():
-                for ex_key, ex_val in self.configs_dict[
-                    "delete_extra_vars_dict"
-                ][key].items():
+                for ex_key, ex_val in self.configs_dict["delete_extra_vars_dict"][
+                    key
+                ].items():
                     globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
@@ -149,15 +157,7 @@ class ExtractDeleteAndLoad(object):
             conn_type = self.conn_type_dict["delete"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["delete"][key]
-            # Get delete statement
-            stmt = (
-                eval(self.configs_dict["delete_sql_stmts_dict"][key])
-                if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
-                else self.configs_dict["delete_sql_stmts_dict"][key]
-            )
             # Execute delete statement
-            print(f"Deleting data for {key}...")
-            print(f"     Delete query: {stmt}")
             try:
                 sql_exec_stmt(
                     stmt,
@@ -187,22 +187,22 @@ class ExtractDeleteAndLoad(object):
         for key, val in kwargs.items():
             globals()[key] = val
         # Iterate over truncate statements
-        for (key,) in self.configs_dict["truncate_sql_stmts_dict"].keys():
-            # Get connection suffix
-            conn_suff = self.conn_suff_dict["truncate"][key]
-            # Get connection type
-            conn_type = self.conn_type_dict["truncate"][key]
-            # Get connection dictionary
-            conn_dict = self.conn_info_dict["truncate"][key]
+        for key in self.configs_dict["truncate_sql_stmts_dict"].keys():
+            print(f"Truncating data for {key}...")
             # Get delete statement
             stmt = (
                 eval(self.configs_dict["truncate_sql_stmts_dict"][key])
                 if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
                 else self.configs_dict["truncate_sql_stmts_dict"][key]
             )
-            # Execute truncate statement
-            print(f"Truncating data for {key}...")
             print(f"     Truncate query: {stmt}")
+            # Get connection suffix
+            conn_suff = self.conn_suff_dict["truncate"][key]
+            # Get connection type
+            conn_type = self.conn_type_dict["truncate"][key]
+            # Get connection dictionary
+            conn_dict = self.conn_info_dict["truncate"][key]
+            # Execute truncate statement
             try:
                 sql_exec_stmt(
                     stmt,
@@ -242,9 +242,9 @@ class ExtractDeleteAndLoad(object):
             print(f"Downloading data for {key}...")
             # Set extra variables as global variables
             if "download_extra_vars_dict" in self.configs_dict.keys():
-                for ex_key, ex_val in self.configs_dict[
-                    "download_extra_vars_dict"
-                ][key].items():
+                for ex_key, ex_val in self.configs_dict["download_extra_vars_dict"][
+                    key
+                ].items():
                     globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
@@ -254,6 +254,9 @@ class ExtractDeleteAndLoad(object):
             conn_dict = self.conn_info_dict["download"][key]
             # Read data
             if conn_type == "dynamodb":
+                print(
+                    f"     DynamoDB table: {self.configs_dict['download_table_names_dict'][key]}"
+                )
                 # Evaluate keyword arguments
                 dynamo_kwargs_eval = {
                     kw_key: eval(kw_val) if "{" in kw_val else kw_val
@@ -262,9 +265,6 @@ class ExtractDeleteAndLoad(object):
                     ][key].items()
                 }
                 # Download data from DynamoDB
-                print(
-                    f"     DynamoDB table: {self.configs_dict['download_table_names_dict'][key]}"
-                )
                 data = dynamodb_read_data(
                     self.configs_dict["download_table_names_dict"][key],
                     self.connections_dict[f"aws_access_key_id_{conn_suff}"],
@@ -279,8 +279,8 @@ class ExtractDeleteAndLoad(object):
                     if "{" in self.configs_dict["download_sql_stmts_dict"][key]
                     else self.configs_dict["download_sql_stmts_dict"][key]
                 )
-                # Download data
                 print(f"     Download query: {stmt}")
+                # Download data
                 data = sql_read_data(
                     stmt,
                     conn_dict,
@@ -347,14 +347,14 @@ class ExtractDeleteAndLoad(object):
             conn_dict = self.conn_info_dict["upload"][key]
             # Upload data
             if conn_type == "dynamodb":
-                # Upload data to DynamoDB
                 print(
                     f"     DynamoDB table: {self.configs_dict['upload_tables_dict'][key]}"
                 )
+                # Upload data to DynamoDB
                 pass
             elif conn_type == "s3":
-                # Upload data to S3
                 print(f"     S3 bucket: {self.configs_dict['upload_tables_dict'][key]}")
+                # Upload data to S3
                 s3_upload_csv(
                     upload_data,
                     self.configs_dict["s3_file_paths_dict"][key],
