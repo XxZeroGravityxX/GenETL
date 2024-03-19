@@ -132,67 +132,35 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Delete configurations are not set! Please set them first."
             )
-        # Set keyword arguments as variables
+        # Set keyword arguments as local variables
         for key, val in kwargs.items():
             locals()[key] = val
         # Iterate over delete statements
         for key in self.configs_dict["delete_sql_stmts_dict"].keys():
-            if "delete_dates_dict" in self.configs_dict.keys():
-                # Start date to ingest data from
-                global start_date
-                start_date = (
-                    (
-                        eval(self.configs_dict["delete_dates_dict"][key]["start_date"])
-                        if "eval("
-                        in self.configs_dict["delete_dates_dict"][key]["start_date"]
-                        else self.configs_dict["delete_dates_dict"][key]["start_date"]
-                    )
-                    if "start_date" in self.configs_dict["delete_dates_dict"][key]
-                    else None
-                )
-                # End date to ingest data from
-                global end_date
-                end_date = (
-                    (
-                        eval(self.configs_dict["delete_dates_dict"][key]["end_date"])
-                        if "eval("
-                        in self.configs_dict["delete_dates_dict"][key]["end_date"]
-                        else self.configs_dict["delete_dates_dict"][key]["end_date"]
-                    )
-                    if "end_date" in self.configs_dict["delete_dates_dict"][key]
-                    else None
-                )
-            else:
-                start_date = None
-                end_date = None
-            print(
-                f"Deleting data from {key}, since {start_date} to {end_date}..."
-                if start_date and end_date
-                else (
-                    f"Deleting data from {key}, since {start_date}"
-                    if start_date
-                    else (
-                        f"Deleting data from {key}, until {end_date}"
-                        if end_date
-                        else f"Deleting data from {key}..."
-                    )
-                )
-            )
+            # Set extra variables as local variables
+            if "delete_extra_vars_dict" in self.configs_dict.keys():
+                for ex_key, ex_val in self.configs_dict[
+                    "delete_extra_vars_dict"
+                ].keys():
+                    locals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
             # Get connection type
             conn_type = self.conn_type_dict["delete"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["delete"][key]
+            # Get delete statement
+            stmt = (
+                eval(self.configs_dict["delete_sql_stmts_dict"][key])
+                if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                else self.configs_dict["delete_sql_stmts_dict"][key]
+            )
             # Execute delete statement
             print(f"Deleting data for {key}...")
+            print(f"     Delete query: {stmt}")
             try:
                 sql_exec_stmt(
-                    (
-                        eval(self.configs_dict["delete_sql_stmts_dict"][key])
-                        if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
-                        else self.configs_dict["delete_sql_stmts_dict"][key]
-                    ),
+                    stmt,
                     conn_dict,
                     mode=conn_type,
                 )
@@ -215,6 +183,9 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Truncate configurations are not set! Please set them first."
             )
+        # Set keyword arguments as local variables
+        for key, val in kwargs.items():
+            locals()[key] = val
         # Iterate over truncate statements
         for (key,) in self.configs_dict["truncate_sql_stmts_dict"].keys():
             # Get connection suffix
@@ -223,15 +194,18 @@ class ExtractDeleteAndLoad(object):
             conn_type = self.conn_type_dict["truncate"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["truncate"][key]
+            # Get delete statement
+            stmt = (
+                eval(self.configs_dict["truncate_sql_stmts_dict"][key])
+                if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
+                else self.configs_dict["truncate_sql_stmts_dict"][key]
+            )
             # Execute truncate statement
             print(f"Truncating data for {key}...")
+            print(f"     Truncate query: {stmt}")
             try:
                 sql_exec_stmt(
-                    (
-                        eval(self.configs_dict["truncate_sql_stmts_dict"][key])
-                        if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
-                        else self.configs_dict["truncate_sql_stmts_dict"][key]
-                    ),
+                    stmt,
                     conn_dict,
                     mode=conn_type,
                 )
@@ -240,7 +214,7 @@ class ExtractDeleteAndLoad(object):
 
         pass
 
-    def read_data(self):
+    def read_data(self, **kwargs):
         """
         Function to read CMV data from DynamoDB.
         """
@@ -254,6 +228,9 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Download configurations are not set! Please set them first."
             )
+        # Set keyword arguments as local variables
+        for key, val in kwargs.items():
+            locals()[key] = val
         # Initialize raw data
         self.raw_data = {}
         # Iterate over tables/statements
@@ -262,82 +239,50 @@ class ExtractDeleteAndLoad(object):
             if "download_table_names_dict" in self.configs_dict.keys()
             else self.configs_dict["download_sql_stmts_dict"].keys()
         ):
-            if "download_dates_dict" in self.configs_dict.keys():
-                # Start date to ingest data from
-                global start_date
-                start_date = (
-                    (
-                        eval(
-                            self.configs_dict["download_dates_dict"][key]["start_date"]
-                        )
-                        if "eval("
-                        in self.configs_dict["download_dates_dict"][key]["start_date"]
-                        else self.configs_dict["download_dates_dict"][key]["start_date"]
-                    )
-                    if "start_date" in self.configs_dict["download_dates_dict"][key]
-                    else None
-                )
-                # End date to ingest data from
-                global end_date
-                end_date = (
-                    (
-                        eval(self.configs_dict["download_dates_dict"][key]["end_date"])
-                        if "eval("
-                        in self.configs_dict["download_dates_dict"][key]["end_date"]
-                        else self.configs_dict["download_dates_dict"][key]["end_date"]
-                    )
-                    if "end_date" in self.configs_dict["download_dates_dict"][key]
-                    else None
-                )
-            else:
-                start_date = None
-                end_date = None
-            print(
-                f"Reading data from {key}, since {start_date} to {end_date}..."
-                if start_date and end_date
-                else (
-                    f"Reading data from {key}, since {start_date}"
-                    if start_date
-                    else (
-                        f"Reading data from {key}, until {end_date}"
-                        if end_date
-                        else f"Reading data from {key}..."
-                    )
-                )
-            )
+            print(f"Downloading data for {key}...")
+            # Set extra variables as local variables
+            if "download_extra_vars_dict" in self.configs_dict.keys():
+                for ex_key, ex_val in self.configs_dict[
+                    "download_extra_vars_dict"
+                ].keys():
+                    locals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
             # Get connection type
             conn_type = self.conn_type_dict["download"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["download"][key]
-            # Evaluate keyword arguments
-            kwargs_eval = (
-                {
-                    kw_key: eval(kw_val) if "{" in kw_val else kw_val
-                    for kw_key, kw_val in self.configs_dict["download_kwargs_dict"][
-                        key
-                    ].items()
-                }
-                if "download_kwargs_dict" in self.configs_dict.keys()
-                else {}
-            )
             # Read data
             if conn_type == "dynamodb":
+                # Evaluate keyword arguments
+                dynamo_kwargs_eval = {
+                    kw_key: eval(kw_val) if "{" in kw_val else kw_val
+                    for kw_key, kw_val in self.configs_dict[
+                        "download_dynamodb_kwargs_dict"
+                    ][key].items()
+                }
+                # Download data from DynamoDB
+                print(
+                    f"     DynamoDB table: {self.configs_dict['download_table_names_dict'][key]}"
+                )
                 data = dynamodb_read_data(
                     self.configs_dict["download_table_names_dict"][key],
                     self.connections_dict[f"aws_access_key_id_{conn_suff}"],
                     self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
                     self.connections_dict[f"region_name_{conn_suff}"],
-                    **kwargs_eval,
+                    **dynamo_kwargs_eval,
                 )
             else:
+                # Get download statement
+                stmt = (
+                    eval(self.configs_dict["download_sql_stmts_dict"][key])
+                    if "{" in self.configs_dict["download_sql_stmts_dict"][key]
+                    else self.configs_dict["download_sql_stmts_dict"][key]
+                )
+                # Download data
+                print(f"     Download query: {stmt}")
                 data = sql_read_data(
-                    (
-                        eval(self.configs_dict["download_sql_stmts_dict"][key])
-                        if "{" in self.configs_dict["download_sql_stmts_dict"][key]
-                        else self.configs_dict["download_sql_stmts_dict"][key]
-                    ),
+                    stmt,
                     conn_dict,
                     mode=conn_type,
                     custom_conn_str=(
@@ -368,7 +313,7 @@ class ExtractDeleteAndLoad(object):
 
         pass
 
-    def upload_data(self, data_to_upload: dict):
+    def upload_data(self, data_to_upload: dict, **kwargs):
         """
         Function to upload CMV data into the database.
 
@@ -386,8 +331,12 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Upload configurations are not set! Please set them first."
             )
+        # Set keyword arguments as local variables
+        for key, val in kwargs.items():
+            locals()[key] = val
         # Iterate over tables/statements
         for key in self.configs_dict["upload_tables_dict"].keys():
+            print(f"Uploading data for {key}...")
             # Set data to upload
             upload_data = data_to_upload[key]
             # Get connection suffix
@@ -398,7 +347,32 @@ class ExtractDeleteAndLoad(object):
             conn_dict = self.conn_info_dict["upload"][key]
             # Upload data
             if conn_type == "dynamodb":
+                # Upload data to DynamoDB
+                print(
+                    f"     DynamoDB table: {self.configs_dict['upload_tables_dict'][key]}"
+                )
                 pass
+            elif conn_type == "s3":
+                # Upload data to S3
+                print(f"     S3 bucket: {self.configs_dict['upload_tables_dict'][key]}")
+                s3_upload_csv(
+                    upload_data,
+                    self.configs_dict["s3_file_paths_dict"][key],
+                    self.connections_dict[f"aws_access_key_id_{conn_suff}"],
+                    self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
+                    region_name=self.connections_dict[f"region_name_{conn_suff}"],
+                    sep=(
+                        self.configs_dict["s3_csv_seps_dict"][key]
+                        if "s3_csv_seps_dict" in self.configs_dict.keys()
+                        else ","
+                    ),
+                    index=False,
+                    encoding=(
+                        self.configs_dict["s3_csv_encodings_dict"][key]
+                        if "s3_csv_encodings_dict" in self.configs_dict.keys()
+                        else "utf-8"
+                    ),
+                )
             else:
                 # Define column names and data types
                 col_dict = self.configs_dict["upload_python_to_sql_dtypes_dict"][key]
@@ -416,7 +390,10 @@ class ExtractDeleteAndLoad(object):
                 # Use order defined in data types dictionary
                 upload_data = upload_data[list(col_dict.keys())]
                 # Upload data to created tables
-                if "redshift" in conn_type:
+                if "redshift" in conn_type:  # Upload data to Redshift
+                    print(
+                        f"     Redshift table: {self.configs_dict['upload_tables_dict'][key]}"
+                    )
                     # Upload data to S3
                     s3_upload_csv(
                         upload_data,
@@ -456,7 +433,10 @@ class ExtractDeleteAndLoad(object):
                             else 3
                         ),
                     )
-                else:
+                else:  # Upload data to other databases
+                    print(
+                        f"     {conn_type.capitalize()} table: {self.configs_dict['upload_tables_dict'][key]}"
+                    )
                     # Upload data to database
                     sql_upload_data(
                         upload_data,
