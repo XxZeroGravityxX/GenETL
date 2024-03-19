@@ -132,17 +132,17 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Delete configurations are not set! Please set them first."
             )
-        # Set keyword arguments as local variables
+        # Set keyword arguments as global variables
         for key, val in kwargs.items():
-            locals()[key] = val
+            globals()[key] = val
         # Iterate over delete statements
         for key in self.configs_dict["delete_sql_stmts_dict"].keys():
-            # Set extra variables as local variables
+            # Set extra variables as global variables
             if "delete_extra_vars_dict" in self.configs_dict.keys():
                 for ex_key, ex_val in self.configs_dict[
                     "delete_extra_vars_dict"
-                ].keys():
-                    locals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
+                ][key].items():
+                    globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
             # Get connection type
@@ -183,9 +183,9 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Truncate configurations are not set! Please set them first."
             )
-        # Set keyword arguments as local variables
+        # Set keyword arguments as global variables
         for key, val in kwargs.items():
-            locals()[key] = val
+            globals()[key] = val
         # Iterate over truncate statements
         for (key,) in self.configs_dict["truncate_sql_stmts_dict"].keys():
             # Get connection suffix
@@ -228,9 +228,9 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Download configurations are not set! Please set them first."
             )
-        # Set keyword arguments as local variables
+        # Set keyword arguments as global variables
         for key, val in kwargs.items():
-            locals()[key] = val
+            globals()[key] = val
         # Initialize raw data
         self.raw_data = {}
         # Iterate over tables/statements
@@ -240,12 +240,12 @@ class ExtractDeleteAndLoad(object):
             else self.configs_dict["download_sql_stmts_dict"].keys()
         ):
             print(f"Downloading data for {key}...")
-            # Set extra variables as local variables
+            # Set extra variables as global variables
             if "download_extra_vars_dict" in self.configs_dict.keys():
                 for ex_key, ex_val in self.configs_dict[
                     "download_extra_vars_dict"
-                ].keys():
-                    locals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
+                ][key].items():
+                    globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
             # Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
             # Get connection type
@@ -331,9 +331,9 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Upload configurations are not set! Please set them first."
             )
-        # Set keyword arguments as local variables
+        # Set keyword arguments as global variables
         for key, val in kwargs.items():
-            locals()[key] = val
+            globals()[key] = val
         # Iterate over tables/statements
         for key in self.configs_dict["upload_tables_dict"].keys():
             print(f"Uploading data for {key}...")
