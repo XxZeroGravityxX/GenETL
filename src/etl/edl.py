@@ -296,12 +296,16 @@ class ExtractDeleteAndLoad(object):
             # Get connection dictionary
             conn_dict = self.conn_info_dict["download"][key]
             # Evaluate keyword arguments
-            kwargs_eval = {
-                kw_key: eval(kw_val) if "{" in kw_val else kw_val
-                for kw_key, kw_val in self.configs_dict["download_kwargs_dict"][
-                    key
-                ].items()
-            }
+            kwargs_eval = (
+                {
+                    kw_key: eval(kw_val) if "{" in kw_val else kw_val
+                    for kw_key, kw_val in self.configs_dict["download_kwargs_dict"][
+                        key
+                    ].items()
+                }
+                if "download_kwargs_dict" in self.configs_dict.keys()
+                else {}
+            )
             # Read data
             if conn_type == "dynamodb":
                 data = dynamodb_read_data(
