@@ -42,8 +42,12 @@ class ExtractDeleteAndLoad(object):
         self.conn_info_dict = {key: {} for key in processes_list}
         self.conn_suff_dict = {key: {} for key in processes_list}
         self.conn_type_dict = {key: {} for key in processes_list}
-        # Iterate over download connections
+        # Iterate over processes
         for p_name in processes_list:
+            # Skip if process is not in configuration dictionary
+            if f"{p_name}_connections_dict" not in self.configs_dict.keys():
+                continue
+            # Iterate over connections
             for key in self.configs_dict[f"{p_name}_connections_dict"].keys():
                 # Get connection suffix
                 self.conn_suff_dict[p_name][key] = self.configs_dict[
@@ -119,6 +123,15 @@ class ExtractDeleteAndLoad(object):
         kwargs : dict. Keyword arguments to pass to the delete statement.
         """
 
+        # Check if delete configurations are set
+        if (
+            ("delete" not in self.conn_suff_dict.keys())
+            or ("delete" not in self.conn_type_dict.keys())
+            or ("delete" not in self.conn_info_dict.keys())
+        ):
+            raise ValueError(
+                "Delete configurations are not set! Please set them first."
+            )
         # Set keyword arguments as variables
         for key, val in kwargs.items():
             locals()[key] = val
@@ -127,18 +140,32 @@ class ExtractDeleteAndLoad(object):
             # Start date to ingest data from
             global start_date
             start_date = (
-                eval(self.configs_dict["delete_dates_dict"][key]["start_date"])
-                if "eval(" in self.configs_dict["delete_dates_dict"][key]["start_date"]
-                else self.configs_dict["delete_dates_dict"][key]["start_date"]
+                (
+                    eval(self.configs_dict["delete_dates_dict"][key]["start_date"])
+                    if "eval("
+                    in self.configs_dict["delete_dates_dict"][key]["start_date"]
+                    else self.configs_dict["delete_dates_dict"][key]["start_date"]
+                )
+                if "start_date" in self.configs_dict["delete_dates_dict"][key]
+                else None
             )
             # End date to ingest data from
             global end_date
             end_date = (
-                eval(self.configs_dict["delete_dates_dict"][key]["end_date"])
-                if "eval(" in self.configs_dict["delete_dates_dict"][key]["end_date"]
-                else self.configs_dict["delete_dates_dict"][key]["end_date"]
+                (
+                    eval(self.configs_dict["delete_dates_dict"][key]["end_date"])
+                    if "eval("
+                    in self.configs_dict["delete_dates_dict"][key]["end_date"]
+                    else self.configs_dict["delete_dates_dict"][key]["end_date"]
+                )
+                if "end_date" in self.configs_dict["delete_dates_dict"][key]
+                else None
             )
-            print(f"Deleting data from {key}, since {start_date} to {end_date}...")
+            print(
+                f"Deleting data from {key}, since {start_date} to {end_date}..."
+                if start_date and end_date
+                else f"Deleting data from {key}..."
+            )
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
             # Get connection type
@@ -161,6 +188,15 @@ class ExtractDeleteAndLoad(object):
         Function to truncate data from the database.
         """
 
+        # Check if truncate configurations are set
+        if (
+            ("truncate" not in self.conn_suff_dict.keys())
+            or ("truncate" not in self.conn_type_dict.keys())
+            or ("truncate" not in self.conn_info_dict.keys())
+        ):
+            raise ValueError(
+                "Truncate configurations are not set! Please set them first."
+            )
         # Iterate over truncate statements
         for key, stmt in self.configs_dict["truncate_sql_stmts_dict"].items():
             # Get connection suffix
@@ -185,6 +221,15 @@ class ExtractDeleteAndLoad(object):
         Function to read CMV data from DynamoDB.
         """
 
+        # Check if download configurations are set
+        if (
+            ("download" not in self.conn_suff_dict.keys())
+            or ("download" not in self.conn_type_dict.keys())
+            or ("download" not in self.conn_info_dict.keys())
+        ):
+            raise ValueError(
+                "Download configurations are not set! Please set them first."
+            )
         # Initialize raw data
         self.raw_data = {}
         # Iterate over tables/statements
@@ -192,19 +237,32 @@ class ExtractDeleteAndLoad(object):
             # Start date to ingest data from
             global start_date
             start_date = (
-                eval(self.configs_dict["download_dates_dict"][key]["start_date"])
-                if "eval("
-                in self.configs_dict["download_dates_dict"][key]["start_date"]
-                else self.configs_dict["download_dates_dict"][key]["start_date"]
+                (
+                    eval(self.configs_dict["download_dates_dict"][key]["start_date"])
+                    if "eval("
+                    in self.configs_dict["download_dates_dict"][key]["start_date"]
+                    else self.configs_dict["download_dates_dict"][key]["start_date"]
+                )
+                if "start_date" in self.configs_dict["download_dates_dict"][key]
+                else None
             )
             # End date to ingest data from
             global end_date
             end_date = (
-                eval(self.configs_dict["download_dates_dict"][key]["end_date"])
-                if "eval(" in self.configs_dict["download_dates_dict"][key]["end_date"]
-                else self.configs_dict["download_dates_dict"][key]["end_date"]
+                (
+                    eval(self.configs_dict["download_dates_dict"][key]["end_date"])
+                    if "eval("
+                    in self.configs_dict["download_dates_dict"][key]["end_date"]
+                    else self.configs_dict["download_dates_dict"][key]["end_date"]
+                )
+                if "end_date" in self.configs_dict["download_dates_dict"][key]
+                else None
             )
-            print(f"Reading data from {key}, since {start_date} to {end_date}...")
+            print(
+                f"Reading data from {key}, since {start_date} to {end_date}..."
+                if start_date and end_date
+                else f"Reading data from {key}..."
+            )
             # Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
             # Get connection type
@@ -236,12 +294,22 @@ class ExtractDeleteAndLoad(object):
                     ),
                     conn_dict,
                     mode=conn_type,
-                    custom_conn_str=self.configs_dict["download_custom_conn_strs_dict"][
-                        key
-                    ],
-                    connect_args=self.configs_dict["download_connect_args_dict"][key],
+                    custom_conn_str=(
+                        self.configs_dict["download_custom_conn_strs_dict"][key]
+                        if "download_custom_conn_strs_dict" in self.configs_dict.keys()
+                        else None
+                    ),
+                    connect_args=(
+                        self.configs_dict["download_connect_args_dict"][key]
+                        if "download_connect_args_dict" in self.configs_dict.keys()
+                        else {}
+                    ),
                     name=tb_name,
-                    max_n_try=3,
+                    max_n_try=(
+                        self.configs_dict["max_n_try"]
+                        if "max_n_try" in self.configs_dict.keys()
+                        else 3
+                    ),
                 )
             # Add data to raw data dictionary
             self.raw_data[key] = data.copy()
@@ -259,6 +327,15 @@ class ExtractDeleteAndLoad(object):
         data_to_upload : list. List with data to upload.
         """
 
+        # Check if upload configurations are set
+        if (
+            ("upload" not in self.conn_suff_dict.keys())
+            or ("upload" not in self.conn_type_dict.keys())
+            or ("upload" not in self.conn_info_dict.keys())
+        ):
+            raise ValueError(
+                "Upload configurations are not set! Please set them first."
+            )
         # Iterate over tables/statements
         for key, tb_name in self.configs_dict["upload_tables_dict"].items():
             # Set data to upload
@@ -297,9 +374,17 @@ class ExtractDeleteAndLoad(object):
                         self.connections_dict[f"aws_access_key_id_{conn_suff}"],
                         self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
                         region_name=self.connections_dict[f"region_name_{conn_suff}"],
-                        sep=",",
+                        sep=(
+                            self.configs_dict["s3_csv_seps_dict"][key]
+                            if "s3_csv_seps_dict" in self.configs_dict.keys()
+                            else ","
+                        ),
                         index=False,
-                        encoding="utf-8",
+                        encoding=(
+                            self.configs_dict["s3_csv_encodings_dict"][key]
+                            if "s3_csv_encodings_dict" in self.configs_dict.keys()
+                            else "utf-8"
+                        ),
                     )
                     # Copy data from S3 to database
                     sql_copy_data(
@@ -315,7 +400,11 @@ class ExtractDeleteAndLoad(object):
                         self.connections_dict[f"aws_secret_access_key_aws_{conn_suff}"],
                         self.connections_dict[f"region_name_aws_{conn_suff}"],
                         name=self.configs_dict["upload_tables_dict"][key],
-                        max_n_try=self.configs_dict["max_n_try"],
+                        max_n_try=(
+                            self.configs_dict["max_n_try"]
+                            if "max_n_try" in self.configs_dict.keys()
+                            else 3
+                        ),
                     )
                 else:
                     # Upload data to database
@@ -325,16 +414,39 @@ class ExtractDeleteAndLoad(object):
                         self.configs_dict["upload_tables_dict"][key],
                         conn_dict,
                         mode=conn_type,
-                        custom_conn_str=self.configs_dict[
-                            "upload_custom_conn_strs_dict"
-                        ][key],
-                        connect_args=self.configs_dict["upload_connect_args_dict"][key],
+                        custom_conn_str=(
+                            self.configs_dict["upload_custom_conn_strs_dict"][key]
+                            if "upload_custom_conn_strs_dict"
+                            in self.configs_dict.keys()
+                            else None
+                        ),
+                        connect_args=(
+                            self.configs_dict["upload_connect_args_dict"][key]
+                            if "upload_connect_args_dict" in self.configs_dict.keys()
+                            else {}
+                        ),
                         name=self.configs_dict["upload_tables_dict"][key],
-                        chunksize=self.configs_dict["upload_chunksizes_dict"][key],
-                        method=self.configs_dict["upload_methods_dict"][key],
+                        chunksize=(
+                            self.configs_dict["upload_chunksizes_dict"][key]
+                            if "upload_chunksizes_dict" in self.configs_dict.keys()
+                            else 100
+                        ),
+                        method=(
+                            self.configs_dict["upload_methods_dict"][key]
+                            if "upload_methods_dict" in self.configs_dict.keys()
+                            else "multi"
+                        ),
                         dtypes_dict=dtypes_dict,
-                        max_n_try=self.configs_dict["max_n_try"],
-                        n_jobs=self.configs_dict["n_parallel"],
+                        max_n_try=(
+                            self.configs_dict["max_n_try"]
+                            if "max_n_try" in self.configs_dict.keys()
+                            else 3
+                        ),
+                        n_jobs=(
+                            self.configs_dict["n_parallel"]
+                            if "n_parallel" in self.configs_dict.keys()
+                            else -1
+                        ),
                     )
 
         pass
