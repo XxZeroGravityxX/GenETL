@@ -137,34 +137,46 @@ class ExtractDeleteAndLoad(object):
             locals()[key] = val
         # Iterate over delete statements
         for key, stmt in self.configs_dict["delete_sql_stmts_dict"].items():
-            # Start date to ingest data from
-            global start_date
-            start_date = (
-                (
-                    eval(self.configs_dict["delete_dates_dict"][key]["start_date"])
-                    if "eval("
-                    in self.configs_dict["delete_dates_dict"][key]["start_date"]
-                    else self.configs_dict["delete_dates_dict"][key]["start_date"]
+            if "delete_dates_dict" in self.configs_dict.keys():
+                # Start date to ingest data from
+                global start_date
+                start_date = (
+                    (
+                        eval(self.configs_dict["delete_dates_dict"][key]["start_date"])
+                        if "eval("
+                        in self.configs_dict["delete_dates_dict"][key]["start_date"]
+                        else self.configs_dict["delete_dates_dict"][key]["start_date"]
+                    )
+                    if "start_date" in self.configs_dict["delete_dates_dict"][key]
+                    else None
                 )
-                if "start_date" in self.configs_dict["delete_dates_dict"][key]
-                else None
-            )
-            # End date to ingest data from
-            global end_date
-            end_date = (
-                (
-                    eval(self.configs_dict["delete_dates_dict"][key]["end_date"])
-                    if "eval("
-                    in self.configs_dict["delete_dates_dict"][key]["end_date"]
-                    else self.configs_dict["delete_dates_dict"][key]["end_date"]
+                # End date to ingest data from
+                global end_date
+                end_date = (
+                    (
+                        eval(self.configs_dict["delete_dates_dict"][key]["end_date"])
+                        if "eval("
+                        in self.configs_dict["delete_dates_dict"][key]["end_date"]
+                        else self.configs_dict["delete_dates_dict"][key]["end_date"]
+                    )
+                    if "end_date" in self.configs_dict["delete_dates_dict"][key]
+                    else None
                 )
-                if "end_date" in self.configs_dict["delete_dates_dict"][key]
-                else None
-            )
+            else:
+                start_date = None
+                end_date = None
             print(
                 f"Deleting data from {key}, since {start_date} to {end_date}..."
                 if start_date and end_date
-                else f"Deleting data from {key}..."
+                else (
+                    f"Deleting data from {key}, since {start_date}"
+                    if start_date
+                    else (
+                        f"Deleting data from {key}, until {end_date}"
+                        if end_date
+                        else f"Deleting data from {key}..."
+                    )
+                )
             )
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
@@ -234,34 +246,48 @@ class ExtractDeleteAndLoad(object):
         self.raw_data = {}
         # Iterate over tables/statements
         for key, tb_name in self.configs_dict["download_table_names_dict"].items():
-            # Start date to ingest data from
-            global start_date
-            start_date = (
-                (
-                    eval(self.configs_dict["download_dates_dict"][key]["start_date"])
-                    if "eval("
-                    in self.configs_dict["download_dates_dict"][key]["start_date"]
-                    else self.configs_dict["download_dates_dict"][key]["start_date"]
+            if "download_dates_dict" in self.configs_dict.keys():
+                # Start date to ingest data from
+                global start_date
+                start_date = (
+                    (
+                        eval(
+                            self.configs_dict["download_dates_dict"][key]["start_date"]
+                        )
+                        if "eval("
+                        in self.configs_dict["download_dates_dict"][key]["start_date"]
+                        else self.configs_dict["download_dates_dict"][key]["start_date"]
+                    )
+                    if "start_date" in self.configs_dict["download_dates_dict"][key]
+                    else None
                 )
-                if "start_date" in self.configs_dict["download_dates_dict"][key]
-                else None
-            )
-            # End date to ingest data from
-            global end_date
-            end_date = (
-                (
-                    eval(self.configs_dict["download_dates_dict"][key]["end_date"])
-                    if "eval("
-                    in self.configs_dict["download_dates_dict"][key]["end_date"]
-                    else self.configs_dict["download_dates_dict"][key]["end_date"]
+                # End date to ingest data from
+                global end_date
+                end_date = (
+                    (
+                        eval(self.configs_dict["download_dates_dict"][key]["end_date"])
+                        if "eval("
+                        in self.configs_dict["download_dates_dict"][key]["end_date"]
+                        else self.configs_dict["download_dates_dict"][key]["end_date"]
+                    )
+                    if "end_date" in self.configs_dict["download_dates_dict"][key]
+                    else None
                 )
-                if "end_date" in self.configs_dict["download_dates_dict"][key]
-                else None
-            )
+            else:
+                start_date = None
+                end_date = None
             print(
                 f"Reading data from {key}, since {start_date} to {end_date}..."
                 if start_date and end_date
-                else f"Reading data from {key}..."
+                else (
+                    f"Reading data from {key}, since {start_date}"
+                    if start_date
+                    else (
+                        f"Reading data from {key}, until {end_date}"
+                        if end_date
+                        else f"Reading data from {key}..."
+                    )
+                )
             )
             # Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
