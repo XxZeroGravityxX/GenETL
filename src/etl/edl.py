@@ -235,8 +235,8 @@ class ExtractDeleteAndLoad(object):
         self.raw_data = {}
         # Iterate over tables/statements
         for key in (
-            self.configs_dict["download_table_names_dict"].keys()
-            if "download_table_names_dict" in self.configs_dict.keys()
+            self.configs_dict["download_tables_dict"].keys()
+            if "download_tables_dict" in self.configs_dict.keys()
             else self.configs_dict["download_sql_stmts_dict"].keys()
         ):
             print(f"Downloading data for {key}...")
@@ -255,7 +255,7 @@ class ExtractDeleteAndLoad(object):
             # Read data
             if conn_type == "dynamodb":
                 print(
-                    f"     DynamoDB table: {self.configs_dict['download_table_names_dict'][key]}"
+                    f"     DynamoDB table: {self.configs_dict['download_tables_dict'][key]}"
                 )
                 # Evaluate keyword arguments
                 dynamo_kwargs_eval = {
@@ -266,7 +266,7 @@ class ExtractDeleteAndLoad(object):
                 }
                 # Download data from DynamoDB
                 data = dynamodb_read_data(
-                    self.configs_dict["download_table_names_dict"][key],
+                    self.configs_dict["download_tables_dict"][key],
                     self.connections_dict[f"aws_access_key_id_{conn_suff}"],
                     self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
                     self.connections_dict[f"region_name_{conn_suff}"],
@@ -296,8 +296,8 @@ class ExtractDeleteAndLoad(object):
                         else {}
                     ),
                     name=(
-                        self.configs_dict["download_table_names_dict"][key]
-                        if "download_table_names_dict" in self.configs_dict.keys()
+                        self.configs_dict["download_tables_dict"][key]
+                        if "download_tables_dict" in self.configs_dict.keys()
                         else key
                     ),
                     max_n_try=(
