@@ -152,6 +152,10 @@ region_name_prod: <aws-region-name>
 }
 ```
 
+### Classes and functions
+
+Below you can find the classes and functions available in the package, with their respective methods and parameters:
+
 - etl.edl
     - class **ExtractDeleteAndLoad**(object)
         - **__init__**(self, config_dict={}, conn_dict={}, sqlalchemy_dict={})
