@@ -2,7 +2,7 @@
 
 ## Where to get it
 
-The source code is hosted on GitHub at: https://github.com/XxZeroGravityxX/GenETL. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/pandas) 
+The source code is hosted on GitHub at: https://github.com/XxZeroGravityxX/GenETL. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/GenETL) 
 
 ```bash
 # or PyPi
@@ -38,6 +38,8 @@ pyspark
 ## Documentation
 
 The configuration for main class (**ExtractDeleteAndLoad)** methods to work, are defined on dictionaries, with connection, data and other parameters. Such configurations are listed below (as YAML and JSON files), with the corresponding arguments names passed to the class:
+
+### Configuration parameters
 
 ```yaml
 ## Delete parameters
@@ -97,6 +99,8 @@ s3_csv_seps_dict: <csv-separator>
 s3_csv_encodings_dict: <csv-encoding-type>
 ```
 
+### Connection parameters
+
 ```yaml
 ## Resources
 
@@ -134,6 +138,8 @@ region_name_prod: <aws-region-name>
 # ...
 
 ```
+
+### SQLalchemy data types
 
 ```json
 {
