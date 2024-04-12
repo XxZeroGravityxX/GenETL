@@ -116,7 +116,7 @@ class ExtractDeleteAndLoad(object):
 
     def delete_data(self, **kwargs):
         """
-        Function to delete data from the database.
+        Function to delete data from the source.
 
         Parameters:
 
@@ -171,7 +171,7 @@ class ExtractDeleteAndLoad(object):
 
     def truncate_data(self, **kwargs):
         """
-        Function to truncate data from the database.
+        Function to truncate data from the source.
         """
 
         # Check if truncate configurations are set
@@ -216,7 +216,7 @@ class ExtractDeleteAndLoad(object):
 
     def read_data(self, **kwargs):
         """
-        Function to read CMV data from DynamoDB.
+        Function to read data from the source.
         """
 
         # Check if download configurations are set
@@ -315,7 +315,7 @@ class ExtractDeleteAndLoad(object):
 
     def upload_data(self, data_to_upload: dict, **kwargs):
         """
-        Function to upload CMV data into the database.
+        Function to upload data to the target.
 
         Parameters:
 
