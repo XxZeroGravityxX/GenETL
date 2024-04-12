@@ -2,7 +2,7 @@
 
 ## Where to get it
 
-The source code is hoted on GitHub at: https://github.com/XxZeroGravityxX/GenETL. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/pandas) 
+The source code is hosted on GitHub at: https://github.com/XxZeroGravityxX/GenETL. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/pandas) 
 
 ```bash
 # or PyPi
