@@ -5,7 +5,6 @@
 The source code is hosted on GitHub at: https://github.com/XxZeroGravityxX/GenETL. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/GenETL) 
 
 ```bash
-# or PyPi
 pip install GenETL
 ```
 
