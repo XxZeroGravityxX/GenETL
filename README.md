@@ -1,5 +1,7 @@
 # GenETL
 
+Generic ETL (**GenETL**) package for data extraction, transformation and loading. The package is designed to work with different databases and data sources, such as Oracle, Redshift, MySQL, S3, DynamoDB, etc (more additions in the future).
+
 ## Where to get it
 
 The source code is hosted on GitHub at: https://github.com/XxZeroGravityxX/GenETL. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/GenETL) 
