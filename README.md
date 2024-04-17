@@ -1,6 +1,6 @@
 # GenETL
 
-Generic ETL (**GenETL**) package for data extraction, transformation and loading. The package is designed to work with different databases and data sources, such as Oracle, Redshift, MySQL, S3, DynamoDB, etc (more additions in the future).
+Generic ETL (**GenETL**) package for data extraction, transformation and loading. The package is designed to work with different databases and data sources, such as Oracle, Redshift, MySQL, S3, DynamoDB, etc. (more additions in the future).
 
 ## Where to get it
 
