@@ -7,6 +7,7 @@ import sqlalchemy
 # Import custom modules
 from etl_tools.sql import sql_exec_stmt, sql_read_data, sql_upload_data, sql_copy_data
 from etl_tools.aws import dynamodb_read_data, s3_upload_csv
+from etl_tools.api import API_request
 
 
 class ExtractDeleteAndLoad(object):
@@ -135,8 +136,12 @@ class ExtractDeleteAndLoad(object):
         # Set keyword arguments as global variables
         for key, val in kwargs.items():
             globals()[key] = val
-        # Iterate over delete statements
-        for key in self.configs_dict["delete_sql_stmts_dict"].keys():
+        # Iterate over table/statements
+        for key in (
+            self.configs_dict["delete_tables_dict"].keys()
+            if "delete_tables_dict" in self.configs_dict.keys()
+            else self.configs_dict["delete_sql_stmts_dict"].keys()
+        ):
             print(f"Deleting data for {key}...")
             # Set extra variables as global variables
             if "delete_extra_vars_dict" in self.configs_dict.keys():
@@ -144,28 +149,50 @@ class ExtractDeleteAndLoad(object):
                     key
                 ].items():
                     globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
-            # Get delete statement
-            stmt = (
-                eval(self.configs_dict["delete_sql_stmts_dict"][key])
-                if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
-                else self.configs_dict["delete_sql_stmts_dict"][key]
-            )
-            print(f"     Delete query: {stmt}")
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
             # Get connection type
             conn_type = self.conn_type_dict["delete"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["delete"][key]
-            # Execute delete statement
-            try:
-                sql_exec_stmt(
-                    stmt,
-                    conn_dict,
-                    mode=conn_type,
+            # Delete data
+            if conn_type == "dynamodb":
+                pass
+            elif conn_type == "s3":
+                pass
+            elif conn_type == "api":
+                api_response = API_request(
+                    self.configs_dict["delete_tables_dict"][key],
+                    headers=(
+                        self.configs_dict["delete_headers_dict"][key]
+                        if "delete_headers_dict" in self.configs_dict.keys()
+                        else None
+                    ),
+                    params=(
+                        self.configs_dict["delete_params_dict"][key]
+                        if "delete_params_dict" in self.configs_dict.keys()
+                        else None
+                    ),
+                    request_type=(self.configs_dict["delete_request_types_dict"][key]),
                 )
-            except Exception as e:
-                print(f"Error deleting data: {type(e)} - {e}")
+                print(f"     API response: {api_response}")
+            else:
+                # Get delete statement
+                stmt = (
+                    eval(self.configs_dict["delete_sql_stmts_dict"][key])
+                    if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                    else self.configs_dict["delete_sql_stmts_dict"][key]
+                )
+                print(f"     Delete query: {stmt}")
+                # Execute delete statement
+                try:
+                    sql_exec_stmt(
+                        stmt,
+                        conn_dict,
+                        mode=conn_type,
+                    )
+                except Exception as e:
+                    print(f"Error deleting data: {type(e)} - {e}")
 
         pass
 
@@ -186,31 +213,43 @@ class ExtractDeleteAndLoad(object):
         # Set keyword arguments as global variables
         for key, val in kwargs.items():
             globals()[key] = val
-        # Iterate over truncate statements
-        for key in self.configs_dict["truncate_sql_stmts_dict"].keys():
+        # Iterate over tables/statements
+        for key in (
+            self.configs_dict["truncate_tables_dict"].keys()
+            if "truncate_tables_dict" in self.configs_dict.keys()
+            else self.configs_dict["truncate_sql_stmts_dict"].keys()
+        ):
             print(f"Truncating data for {key}...")
-            # Get delete statement
-            stmt = (
-                eval(self.configs_dict["truncate_sql_stmts_dict"][key])
-                if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
-                else self.configs_dict["truncate_sql_stmts_dict"][key]
-            )
-            print(f"     Truncate query: {stmt}")
             # Get connection suffix
             conn_suff = self.conn_suff_dict["truncate"][key]
             # Get connection type
             conn_type = self.conn_type_dict["truncate"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["truncate"][key]
-            # Execute truncate statement
-            try:
-                sql_exec_stmt(
-                    stmt,
-                    conn_dict,
-                    mode=conn_type,
+            # Truncate data
+            if conn_type == "dynamodb":
+                pass
+            elif conn_type == "s3":
+                pass
+            elif conn_type == "api":
+                pass
+            else:
+                # Get truncate statement
+                stmt = (
+                    eval(self.configs_dict["truncate_sql_stmts_dict"][key])
+                    if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
+                    else self.configs_dict["truncate_sql_stmts_dict"][key]
                 )
-            except Exception as e:
-                print(f"Error truncating data: {type(e)} - {e}")
+                print(f"     Truncate query: {stmt}")
+                # Execute truncate statement
+                try:
+                    sql_exec_stmt(
+                        stmt,
+                        conn_dict,
+                        mode=conn_type,
+                    )
+                except Exception as e:
+                    print(f"Error truncating data: {type(e)} - {e}")
 
         pass
 
@@ -271,6 +310,29 @@ class ExtractDeleteAndLoad(object):
                     self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
                     self.connections_dict[f"region_name_{conn_suff}"],
                     **dynamo_kwargs_eval,
+                )
+            elif conn_type == "s3":
+                pass
+            elif conn_type == "api":
+                print(
+                    f"     API endpoint: {self.configs_dict['download_tables_dict'][key]}"
+                )
+                # Download data from API
+                data = API_request(
+                    self.configs_dict["download_tables_dict"][key],
+                    headers=(
+                        self.configs_dict["download_headers_dict"][key]
+                        if "download_headers_dict" in self.configs_dict.keys()
+                        else None
+                    ),
+                    params=(
+                        self.configs_dict["download_params_dict"][key]
+                        if "download_params_dict" in self.configs_dict.keys()
+                        else None
+                    ),
+                    request_type=(
+                        self.configs_dict["download_request_types_dict"][key]
+                    ),
                 )
             else:
                 # Get download statement
@@ -335,7 +397,11 @@ class ExtractDeleteAndLoad(object):
         for key, val in kwargs.items():
             globals()[key] = val
         # Iterate over tables/statements
-        for key in self.configs_dict["upload_tables_dict"].keys():
+        for key in (
+            self.configs_dict["upload_tables_dict"].keys()
+            if "upload_tables_dict" in self.configs_dict.keys()
+            else self.configs_dict["upload_sql_stmts_dict"].keys()
+        ):
             print(f"Uploading data for {key}...")
             # Set data to upload
             upload_data = data_to_upload[key]
@@ -373,6 +439,31 @@ class ExtractDeleteAndLoad(object):
                         else "utf-8"
                     ),
                 )
+            elif conn_type == "api":
+                print(
+                    f"     API endpoint: {self.configs_dict['upload_tables_dict'][key]}"
+                )
+                # Upload data to API
+                api_response = API_request(
+                    self.configs_dict["upload_tables_dict"][key],
+                    headers=(
+                        self.configs_dict["upload_headers_dict"][key]
+                        if "upload_headers_dict" in self.configs_dict.keys()
+                        else None
+                    ),
+                    data=(
+                        upload_data
+                        if self.configs_dict["upload_types_dict"][key].lower() == "data"
+                        else None
+                    ),
+                    json=(
+                        upload_data
+                        if self.configs_dict["upload_types_dict"][key].lower() == "json"
+                        else None
+                    ),
+                    request_type=self.configs_dict["upload_request_types_dict"][key],
+                )
+                print(f"     API response: {api_response}")
             else:
                 # Define column names and data types
                 col_dict = self.configs_dict["upload_python_to_sql_dtypes_dict"][key]
