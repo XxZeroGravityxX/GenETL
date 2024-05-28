@@ -158,7 +158,7 @@ class ExtractDeleteAndLoad(object):
                 pass
             elif conn_type == "api":
                 api_response = API_request(
-                    self.configs_dict["delete_tables_dict"][key],
+                    self.configs_dict["delete_urls_dict"][key],
                     headers=(
                         self.configs_dict["delete_headers_dict"][key]
                         if "delete_headers_dict" in self.configs_dict.keys()
@@ -315,11 +315,11 @@ class ExtractDeleteAndLoad(object):
                 pass
             elif conn_type == "api":
                 print(
-                    f"     API endpoint: {self.configs_dict['download_tables_dict'][key]}"
+                    f"     API endpoint: {self.configs_dict['download_urls_dict'][key]}"
                 )
                 # Download data from API
                 data = API_request(
-                    self.configs_dict["download_tables_dict"][key],
+                    self.configs_dict["download_urls_dict"][key],
                     headers=(
                         self.configs_dict["download_headers_dict"][key]
                         if "download_headers_dict" in self.configs_dict.keys()
@@ -427,7 +427,7 @@ class ExtractDeleteAndLoad(object):
                 # Upload data to DynamoDB
                 pass
             elif conn_type == "s3":
-                print(f"     S3 bucket: {self.configs_dict['upload_tables_dict'][key]}")
+                print(f"     S3 bucket: {self.configs_dict['s3_file_paths_dict'][key]}")
                 # Upload data to S3
                 s3_upload_csv(
                     upload_data,
@@ -449,11 +449,11 @@ class ExtractDeleteAndLoad(object):
                 )
             elif conn_type == "api":
                 print(
-                    f"     API endpoint: {self.configs_dict['upload_tables_dict'][key]}"
+                    f"     API endpoint: {self.configs_dict['upload_urls_dict'][key]}"
                 )
                 # Upload data to API
                 api_response = API_request(
-                    self.configs_dict["upload_tables_dict"][key],
+                    self.configs_dict["upload_urls_dict"][key],
                     headers=(
                         self.configs_dict["upload_headers_dict"][key]
                         if "upload_headers_dict" in self.configs_dict.keys()
