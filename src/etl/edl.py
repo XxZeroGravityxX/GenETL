@@ -173,6 +173,18 @@ class ExtractDeleteAndLoad(object):
                         if "delete_params_dict" in self.configs_dict.keys()
                         else None
                     ),
+                    data=(
+                        self.configs_dict["delete_datas_dict"][key]
+                        if "delete_datas_dict" in self.configs_dict.keys()
+                        and key in self.configs_dict["delete_datas_dict"].keys()
+                        else None
+                    ),
+                    json=(
+                        self.configs_dict["delete_jsons_dict"][key]
+                        if "delete_jsons_dict" in self.configs_dict.keys()
+                        and key in self.configs_dict["delete_jsons_dict"].keys()
+                        else None
+                    ),
                     request_type=(self.configs_dict["delete_request_types_dict"][key]),
                 )
                 print(f"     API response: {api_response}")
@@ -330,6 +342,18 @@ class ExtractDeleteAndLoad(object):
                         if "download_params_dict" in self.configs_dict.keys()
                         else None
                     ),
+                    data=(
+                        self.configs_dict["download_datas_dict"][key]
+                        if "download_datas_dict" in self.configs_dict.keys()
+                        and key in self.configs_dict["download_datas_dict"].keys()
+                        else None
+                    ),
+                    json=(
+                        self.configs_dict["download_jsons_dict"][key]
+                        if "download_jsons_dict" in self.configs_dict.keys()
+                        and key in self.configs_dict["download_jsons_dict"].keys()
+                        else None
+                    ),
                     request_type=(
                         self.configs_dict["download_request_types_dict"][key]
                     ),
@@ -453,12 +477,14 @@ class ExtractDeleteAndLoad(object):
                     ),
                     data=(
                         upload_data
-                        if self.configs_dict["upload_types_dict"][key].lower() == "data"
+                        if "upload_datas_dict" in self.configs_dict.keys()
+                        and key in self.configs_dict["upload_datas_dict"].keys()
                         else None
                     ),
                     json=(
                         upload_data
-                        if self.configs_dict["upload_types_dict"][key].lower() == "json"
+                        if "upload_jsons_dict" in self.configs_dict.keys()
+                        and key in self.configs_dict["upload_jsons_dict"].keys()
                         else None
                     ),
                     request_type=self.configs_dict["upload_request_types_dict"][key],
