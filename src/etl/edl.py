@@ -136,12 +136,8 @@ class ExtractDeleteAndLoad(object):
         # Set keyword arguments as global variables
         for key, val in kwargs.items():
             globals()[key] = val
-        # Iterate over table/statements
-        for key in (
-            self.configs_dict["delete_tables_dict"].keys()
-            if "delete_tables_dict" in self.configs_dict.keys()
-            else self.configs_dict["delete_sql_stmts_dict"].keys()
-        ):
+        # Iterate over connections
+        for key in self.configs_dict["delete_connections_dict"].keys():
             print(f"Deleting data for {key}...")
             # Set extra variables as global variables
             if "delete_extra_vars_dict" in self.configs_dict.keys():
@@ -225,12 +221,8 @@ class ExtractDeleteAndLoad(object):
         # Set keyword arguments as global variables
         for key, val in kwargs.items():
             globals()[key] = val
-        # Iterate over tables/statements
-        for key in (
-            self.configs_dict["truncate_tables_dict"].keys()
-            if "truncate_tables_dict" in self.configs_dict.keys()
-            else self.configs_dict["truncate_sql_stmts_dict"].keys()
-        ):
+        # Iterate over connections
+        for key in self.configs_dict["truncate_connections_dict"].keys():
             print(f"Truncating data for {key}...")
             # Get connection suffix
             conn_suff = self.conn_suff_dict["truncate"][key]
@@ -284,12 +276,8 @@ class ExtractDeleteAndLoad(object):
             globals()[key] = val
         # Initialize raw data
         self.raw_data = {}
-        # Iterate over tables/statements
-        for key in (
-            self.configs_dict["download_tables_dict"].keys()
-            if "download_tables_dict" in self.configs_dict.keys()
-            else self.configs_dict["download_sql_stmts_dict"].keys()
-        ):
+        # Iterate over connections
+        for key in self.configs_dict["download_connections_dict"].keys():
             print(f"Downloading data for {key}...")
             # Set extra variables as global variables
             if "download_extra_vars_dict" in self.configs_dict.keys():
@@ -420,12 +408,8 @@ class ExtractDeleteAndLoad(object):
         # Set keyword arguments as global variables
         for key, val in kwargs.items():
             globals()[key] = val
-        # Iterate over tables/statements
-        for key in (
-            self.configs_dict["upload_tables_dict"].keys()
-            if "upload_tables_dict" in self.configs_dict.keys()
-            else self.configs_dict["upload_sql_stmts_dict"].keys()
-        ):
+        # Iterate over connections
+        for key in self.configs_dict["upload_connections_dict"].keys():
             print(f"Uploading data for {key}...")
             # Set data to upload
             upload_data = data_to_upload[key]
