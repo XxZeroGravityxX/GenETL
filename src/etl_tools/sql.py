@@ -797,11 +797,10 @@ def sql_read_data(
                 engine_obj = create_bigquery_engine(conn_dict, **kwargs)
             elif mode == "mysql":
                 engine_obj = create_mysql_engine(conn_dict, **kwargs)
-
-            # Dispose connections
-            engine_obj.dispose()
             # Read sql statement
             df = pd.read_sql(sql_stmt, engine_obj)
+            # Dispose connections
+            engine_obj.dispose()
             # Change status
             succeeded = True
         except Exception as e:

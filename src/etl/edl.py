@@ -113,11 +113,11 @@ class ExtractDeleteAndLoad(object):
                         in self.connections_dict.keys()
                         else ""
                     ),
-                    "myregion": (
+                    "mylocation": (
                         self.connections_dict[
-                            f"myregion_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                            f"mylocation_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
                         ]
-                        if f"myregion_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        if f"mylocation_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
                         in self.connections_dict.keys()
                         else ""
                     ),
