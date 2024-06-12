@@ -121,6 +121,30 @@ class ExtractDeleteAndLoad(object):
                         in self.connections_dict.keys()
                         else ""
                     ),
+                    "myengine_prefix": (
+                        self.connections_dict[
+                            f"myengine_prefix_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        ]
+                        if f"myengine_prefix_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        in self.connections_dict.keys()
+                        else ""
+                    ),
+                    "myport": (
+                        self.connections_dict[
+                            f"myport_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        ]
+                        if f"myport_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        in self.connections_dict.keys()
+                        else ""
+                    ),
+                    "mysslmode": (
+                        self.connections_dict[
+                            f"mysslmode_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        ]
+                        if f"mysslmode_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        in self.connections_dict.keys()
+                        else ""
+                    ),
                 }
 
     def delete_data(self, **kwargs):
