@@ -145,6 +145,14 @@ class ExtractDeleteAndLoad(object):
                         in self.connections_dict.keys()
                         else ""
                     ),
+                    "mydriver": (
+                        self.connections_dict[
+                            f"mydriver_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        ]
+                        if f"mydriver_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        in self.connections_dict.keys()
+                        else ""
+                    ),
                 }
 
     def delete_data(self, **kwargs):
