@@ -20,15 +20,19 @@ class ExtractDeleteAndLoad(object):
         config_dict={},
         conn_dict={},
         sqlalchemy_dict={},
+        globals_dict={},
+        locals_dict={},
     ):
         """
         Class constructor.
 
         Parameters:
 
-        config_dict : dict. Configuration dictionary with connection and data parameters.
-        conn_dict : dict. Connection dictionary with connection parameters.
-        sqlalchemy_dict : dict. Dictionary with sqlalchemy data types.
+        config_dict :           dict. Configuration dictionary with connection and data parameters.
+        conn_dict :             dict. Connection dictionary with connection parameters.
+        sqlalchemy_dict :       dict. Dictionary with sqlalchemy data types.
+        globals_dict :          dict. Global variables dictionary.
+        locals_dict :           dict. Local variables dictionary.
         """
 
         ## Set class parameters
@@ -37,6 +41,13 @@ class ExtractDeleteAndLoad(object):
         self.connections_dict = conn_dict
         self.configs_dict = config_dict
         self.sqlalchemy_dtypes = sqlalchemy_dict
+        # Set global variables
+        for key, val in globals_dict.items():
+            # Set as global
+            globals()[key] = val
+        # Set local variables
+        for key, val in locals_dict.items():
+            locals()[key] = val
         # Set processes names
         processes_list = ["download", "delete", "truncate", "upload"]
         # Set connection parameters
@@ -181,10 +192,26 @@ class ExtractDeleteAndLoad(object):
             print(f"Deleting data for {key}...")
             # Set extra variables as global variables
             if "delete_extra_vars_dict" in self.configs_dict.keys():
-                for ex_key, ex_val in self.configs_dict["delete_extra_vars_dict"][
-                    key
-                ].items():
-                    globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
+                if key in self.configs_dict["delete_extra_vars_dict"].keys():
+                    if len(self.configs_dict["delete_extra_vars_dict"][key]) > 0:
+                        # Turn on variable evaluation
+                        evaluate_vars = True
+                        # Evaluate extra variables
+                        for ex_key, ex_val in self.configs_dict[
+                            "delete_extra_vars_dict"
+                        ][key].items():
+                            globals()[ex_key] = (
+                                eval(ex_val) if "eval(" in ex_val else ex_val
+                            )
+                    else:
+                        # Turn off variable evaluation
+                        evaluate_vars = False
+                else:
+                    # Turn off variable evaluation
+                    evaluate_vars = False
+            else:
+                # Turn off variable evaluation
+                evaluate_vars = False
             # Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
             # Get connection type
@@ -228,7 +255,10 @@ class ExtractDeleteAndLoad(object):
                 # Get delete statement
                 stmt = (
                     eval(self.configs_dict["delete_sql_stmts_dict"][key])
-                    if "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                    if (
+                        "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                        and evaluate_vars
+                    )
                     else self.configs_dict["delete_sql_stmts_dict"][key]
                 )
                 print(f"     Delete query: {stmt}")
@@ -264,6 +294,28 @@ class ExtractDeleteAndLoad(object):
         # Iterate over connections
         for key in self.configs_dict["truncate_connections_dict"].keys():
             print(f"Truncating data for {key}...")
+            # Set extra variables as global variables
+            if "truncate_extra_vars_dict" in self.configs_dict.keys():
+                if key in self.configs_dict["truncate_extra_vars_dict"].keys():
+                    if len(self.configs_dict["truncate_extra_vars_dict"][key]) > 0:
+                        # Turn on variable evaluation
+                        evaluate_vars = True
+                        # Evaluate extra variables
+                        for ex_key, ex_val in self.configs_dict[
+                            "truncate_extra_vars_dict"
+                        ][key].items():
+                            globals()[ex_key] = (
+                                eval(ex_val) if "eval(" in ex_val else ex_val
+                            )
+                    else:
+                        # Turn off variable evaluation
+                        evaluate_vars = False
+                else:
+                    # Turn off variable evaluation
+                    evaluate_vars = False
+            else:
+                # Turn off variable evaluation
+                evaluate_vars = False
             # Get connection suffix
             conn_suff = self.conn_suff_dict["truncate"][key]
             # Get connection type
@@ -281,7 +333,10 @@ class ExtractDeleteAndLoad(object):
                 # Get truncate statement
                 stmt = (
                     eval(self.configs_dict["truncate_sql_stmts_dict"][key])
-                    if "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
+                    if (
+                        "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
+                        and evaluate_vars
+                    )
                     else self.configs_dict["truncate_sql_stmts_dict"][key]
                 )
                 print(f"     Truncate query: {stmt}")
@@ -321,10 +376,26 @@ class ExtractDeleteAndLoad(object):
             print(f"Downloading data for {key}...")
             # Set extra variables as global variables
             if "download_extra_vars_dict" in self.configs_dict.keys():
-                for ex_key, ex_val in self.configs_dict["download_extra_vars_dict"][
-                    key
-                ].items():
-                    globals()[ex_key] = eval(ex_val) if "eval(" in ex_val else ex_val
+                if key in self.configs_dict["download_extra_vars_dict"].keys():
+                    if len(self.configs_dict["download_extra_vars_dict"][key]) > 0:
+                        # Turn on variable evaluation
+                        evaluate_vars = True
+                        # Evaluate extra variables
+                        for ex_key, ex_val in self.configs_dict[
+                            "download_extra_vars_dict"
+                        ][key].items():
+                            globals()[ex_key] = (
+                                eval(ex_val) if "eval(" in ex_val else ex_val
+                            )
+                    else:
+                        # Turn off variable evaluation
+                        evaluate_vars = False
+                else:
+                    # Turn off variable evaluation
+                    evaluate_vars = False
+            else:
+                # Turn off variable evaluation
+                evaluate_vars = False
             # Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
             # Get connection type
@@ -338,7 +409,7 @@ class ExtractDeleteAndLoad(object):
                 )
                 # Evaluate keyword arguments
                 dynamo_kwargs_eval = {
-                    kw_key: eval(kw_val) if "{" in kw_val else kw_val
+                    kw_key: eval(kw_val) if "eval(" in kw_val else kw_val
                     for kw_key, kw_val in self.configs_dict[
                         "download_dynamodb_kwargs_dict"
                     ][key].items()
@@ -390,7 +461,10 @@ class ExtractDeleteAndLoad(object):
                 # Get download statement
                 stmt = (
                     eval(self.configs_dict["download_sql_stmts_dict"][key])
-                    if "{" in self.configs_dict["download_sql_stmts_dict"][key]
+                    if (
+                        "{" in self.configs_dict["download_sql_stmts_dict"][key]
+                        and evaluate_vars
+                    )
                     else self.configs_dict["download_sql_stmts_dict"][key]
                 )
                 print(f"     Download query: {stmt}")
@@ -556,11 +630,7 @@ class ExtractDeleteAndLoad(object):
                     )
                     # Copy data from S3 to database
                     sql_copy_data(
-                        (
-                            eval(self.configs_dict["s3_file_paths_dict"][key])
-                            if "{" in self.configs_dict["s3_file_paths_dict"][key]
-                            else self.configs_dict["s3_file_paths_dict"][key]
-                        ),
+                        self.configs_dict["s3_file_paths_dict"][key],
                         self.configs_dict["upload_schemas_dict"][key],
                         self.configs_dict["upload_tables_dict"][key],
                         conn_dict,
