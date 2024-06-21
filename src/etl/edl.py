@@ -50,6 +50,24 @@ class ExtractDeleteAndLoad(object):
             locals()[key] = val
         # Set processes names
         processes_list = ["download", "delete", "truncate", "upload"]
+        # Set connection keys
+        conn_keys_list = [
+            "myoracle_client_dir",
+            "myserver",
+            "mydatabase",
+            "myusername",
+            "mypassword",
+            "mycharset",
+            "myencoding",
+            "mylocation",
+            "myengine_prefix",
+            "myport",
+            "mysslmode",
+            "mydriver",
+            "myapi_url",
+            "myapi_key",
+            "myapi_secret",
+        ]
         # Set connection parameters
         self.conn_info_dict = {key: {} for key in processes_list}
         self.conn_suff_dict = {key: {} for key in processes_list}
@@ -71,99 +89,15 @@ class ExtractDeleteAndLoad(object):
                 ][key].split("_")[0]
                 # Get connection dictionary
                 self.conn_info_dict[p_name][key] = {
-                    "myoracle_client_dir": (
-                        self.connections_dict["myoracle_client_dir"]
-                        if "myoracle_client_dir" in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "myserver": (
+                    conn_key.lower(): (
                         self.connections_dict[
-                            f"myserver_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                            f"{conn_key.lower()}_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
                         ]
-                        if f"myserver_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        if f"{conn_key.lower()}_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
                         in self.connections_dict.keys()
                         else ""
-                    ),
-                    "mydatabase": (
-                        self.connections_dict[
-                            f"mydatabase_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"mydatabase_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "myusername": (
-                        self.connections_dict[
-                            f"myusername_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"myusername_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "mypassword": (
-                        self.connections_dict[
-                            f"mypassword_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"mypassword_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "mycharset": (
-                        self.connections_dict[
-                            f"mycharset_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"mycharset_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "myencoding": (
-                        self.connections_dict[
-                            f"awmyencoding_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"awmyencoding_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "mylocation": (
-                        self.connections_dict[
-                            f"mylocation_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"mylocation_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "myengine_prefix": (
-                        self.connections_dict[
-                            f"myengine_prefix_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"myengine_prefix_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "myport": (
-                        self.connections_dict[
-                            f"myport_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"myport_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "mysslmode": (
-                        self.connections_dict[
-                            f"mysslmode_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"mysslmode_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
-                    "mydriver": (
-                        self.connections_dict[
-                            f"mydriver_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        ]
-                        if f"mydriver_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
-                        in self.connections_dict.keys()
-                        else ""
-                    ),
+                    )
+                    for conn_key in conn_keys_list
                 }
 
     def delete_data(self, **kwargs):
