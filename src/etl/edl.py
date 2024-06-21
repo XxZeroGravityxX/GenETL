@@ -64,9 +64,9 @@ class ExtractDeleteAndLoad(object):
             "myport",
             "mysslmode",
             "mydriver",
-            "myapi_url",
-            "myapi_key",
-            "myapi_secret",
+            "myurl",
+            "mykey",
+            "mysecret",
         ]
         # Set connection parameters
         self.conn_info_dict = {key: {} for key in processes_list}
