@@ -38,9 +38,9 @@ class ExtractDeleteAndLoad(object):
         ## Set class parameters
 
         # Set configuration parameters
-        self.connections_dict = conn_dict
-        self.configs_dict = config_dict
-        self.sqlalchemy_dtypes = sqlalchemy_dict
+        self.connections_dict = {key.lower(): val for key, val in conn_dict.items()}  # Lowercase keys
+        self.configs_dict = {key.lower(): val for key, val in config_dict.items()}
+        self.sqlalchemy_dtypes = {key.lower(): val for key, val in sqlalchemy_dict.items()}
         # Set global variables
         for key, val in globals_dict.items():
             # Set as global
