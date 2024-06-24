@@ -303,12 +303,16 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
 
     ## Start oracle client
     try:
-        oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])  # Windows
-    except:
-        try:
-            oracledb.init_oracle_client()  # Linux
-        except:
-            pass  # Oracle client already started or not needed
+        try:  # Windows
+            oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])
+        except:  # Linux
+            # Set environment variable
+            os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
+            # Start oracle client
+            oracledb.init_oracle_client()
+    except Exception as e:  # Oracle client already started or not needed
+        print(f"Error starting oracle client -> {type(e)} - {e}")
+        pass
 
     ## Create connector
     conn = oracledb.connect(
