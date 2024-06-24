@@ -304,8 +304,12 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
     ## Start oracle client
     try:
         try:  # Windows
+            print(f"Starting oracle client on Windows -> {conn_dict['myoracle_client_dir']}")
+            # Start oracle client
             oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])
-        except:  # Linux
+        except Exception as e:  # Linux
+            print(f"Error starting oracle client on Windows -> {type(e)} - {e}")
+            print(f"Starting oracle client on Linux -> {conn_dict['myoracle_client_dir']}")
             # Set environment variable
             os.execute(f"export LD_LIBRARY_PATH={conn_dict['myoracle_client_dir']}")
             # Start oracle client
