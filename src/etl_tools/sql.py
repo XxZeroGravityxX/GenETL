@@ -314,8 +314,6 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
             print(
                 f"Starting oracle client on Linux -> {conn_dict['myoracle_client_dir']}"
             )
-            # Set environment variable
-            os.system(f"export LD_LIBRARY_PATH={conn_dict['myoracle_client_dir']}")
             # Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
