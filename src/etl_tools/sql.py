@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import multiprocessing
+import importlib
 
 # Import submodules
 from sqlalchemy import create_engine
@@ -143,16 +144,31 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     engine :                    Oracle engine.
     """
 
-    ## Set extra configuration for connection
-
     ## Start oracle client
     try:
-        oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])  # Windows
-    except:
-        try:
-            oracledb.init_oracle_client()  # Linux
-        except:
-            pass  # Oracle client already started or not needed
+        try:  # Windows
+            print(
+                f"Starting oracle client on Windows -> {conn_dict['myoracle_client_dir']}"
+            )
+            # Start oracle client
+            oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])
+        except Exception as e:  # Linux
+            print(f"Error starting oracle client on Windows -> {type(e)} - {e}")
+            print(
+                f"Starting oracle client on Linux -> {conn_dict['myoracle_client_dir']}"
+            )
+            # Set environment variable
+            os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
+            # Reload module
+            importlib.reload(oracledb)
+            # Start oracle client
+            oracledb.init_oracle_client()
+    except Exception as e:  # Oracle client already started or not needed
+        print(f"Error starting oracle client -> {type(e)} - {e}")
+        pass
+
+    ## Set extra configuration for connection
+
     # Port
     if "myport" not in conn_dict.keys():
         conn_dict["myport"] = 1521
@@ -314,6 +330,10 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
             print(
                 f"Starting oracle client on Linux -> {conn_dict['myoracle_client_dir']}"
             )
+            # Set environment variable
+            os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
+            # Reload module
+            importlib.reload(oracledb)
             # Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
