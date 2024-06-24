@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import multiprocessing
-import importlib
 
 # Import submodules
 from sqlalchemy import create_engine
@@ -159,8 +158,6 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
             )
             # Set environment variable
             os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
-            # Reload module
-            importlib.reload(oracledb)
             # Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
@@ -332,8 +329,6 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
             )
             # Set environment variable
             os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
-            # Reload module
-            importlib.reload(oracledb)
             # Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
