@@ -431,9 +431,9 @@ class ExtractDeleteAndLoad(object):
                         if "max_n_try" in self.configs_dict.keys()
                         else 3
                     ),
-                    log_path=(
-                        self.configs_dict["log_path"]
-                        if "log_path" in self.configs_dict.keys()
+                    log_file_path=(
+                        self.configs_dict["log_file_path"]
+                        if "log_file_path" in self.configs_dict.keys()
                         else "logs"
                     ),
                 )
@@ -586,9 +586,9 @@ class ExtractDeleteAndLoad(object):
                             if "max_n_try" in self.configs_dict.keys()
                             else 3
                         ),
-                        log_path=(
-                            self.configs_dict["log_path"]
-                            if "log_path" in self.configs_dict.keys()
+                        log_file_path=(
+                            self.configs_dict["log_file_path"]
+                            if "log_file_path" in self.configs_dict.keys()
                             else "logs"
                         ),
                     )
@@ -636,9 +636,9 @@ class ExtractDeleteAndLoad(object):
                             if "n_parallel" in self.configs_dict.keys()
                             else -1
                         ),
-                        log_path=(
-                            self.configs_dict["log_path"]
-                            if "log_path" in self.configs_dict.keys()
+                        log_file_path=(
+                            self.configs_dict["log_file_path"]
+                            if "log_file_path" in self.configs_dict.keys()
                             else "logs"
                         ),
                     )
