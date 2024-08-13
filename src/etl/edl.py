@@ -38,9 +38,13 @@ class ExtractDeleteAndLoad(object):
         ## Set class parameters
 
         # Set configuration parameters
-        self.connections_dict = {key.lower(): val for key, val in conn_dict.items()}  # Lowercase keys
+        self.connections_dict = {
+            key.lower(): val for key, val in conn_dict.items()
+        }  # Lowercase keys
         self.configs_dict = {key.lower(): val for key, val in config_dict.items()}
-        self.sqlalchemy_dtypes = {key.lower(): val for key, val in sqlalchemy_dict.items()}
+        self.sqlalchemy_dtypes = {
+            key.lower(): val for key, val in sqlalchemy_dict.items()
+        }
         # Set global variables
         for key, val in globals_dict.items():
             # Set as global
@@ -427,6 +431,11 @@ class ExtractDeleteAndLoad(object):
                         if "max_n_try" in self.configs_dict.keys()
                         else 3
                     ),
+                    log_path=(
+                        self.configs_dict["log_path"]
+                        if "log_path" in self.configs_dict.keys()
+                        else "logs"
+                    ),
                 )
             # Add data to raw data dictionary
             self.raw_data[key] = data.copy()
@@ -577,6 +586,11 @@ class ExtractDeleteAndLoad(object):
                             if "max_n_try" in self.configs_dict.keys()
                             else 3
                         ),
+                        log_path=(
+                            self.configs_dict["log_path"]
+                            if "log_path" in self.configs_dict.keys()
+                            else "logs"
+                        ),
                     )
                 else:  # Upload data to other databases
                     print(
@@ -621,6 +635,11 @@ class ExtractDeleteAndLoad(object):
                             self.configs_dict["n_parallel"]
                             if "n_parallel" in self.configs_dict.keys()
                             else -1
+                        ),
+                        log_path=(
+                            self.configs_dict["log_path"]
+                            if "log_path" in self.configs_dict.keys()
+                            else "logs"
                         ),
                     )
 

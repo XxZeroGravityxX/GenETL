@@ -771,6 +771,7 @@ def sql_read_data(
     connect_args={},
     name=None,
     max_n_try=3,
+    log_file_path="logs",
     **kwargs,
 ):
     """
@@ -785,6 +786,7 @@ def sql_read_data(
     connect_args :         Custom connection argument.
     name :                 Name to use for print statements.
     max_n_try :            Maximum number of tries to execute the query.
+    log_file_path :        Path to use for log files.
     **kwargs :             Extra arguments for connection.
 
     Output:
@@ -831,8 +833,6 @@ def sql_read_data(
         except Exception as e:
             # Initialize empty dataframe
             df = pd.DataFrame()
-            # Set log path
-            log_file_path = "logs"
             # Set log file name
             log_file_name = "read_data"
             # Create logs folder
@@ -867,8 +867,6 @@ def sql_read_data(
 
     ## Create time execution logs
 
-    # Set log path
-    log_file_path = "logs"
     # Set log file name
     log_file_name = "download_data_texec"
     # Create logs folder
@@ -900,6 +898,7 @@ def sql_upload_data(
     dtypes_dict={},
     n_jobs=-1,
     spark_mode="append",
+    log_file_path="logs",
     **kwargs,
 ):
     """
@@ -921,6 +920,7 @@ def sql_upload_data(
     dtypes_dict :           Dictionarie with dtypes to use for upload.
     n_jobs :                Integer with number of jobs to use for parallelization.
     spark_mode :            String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
+    log_file_path :         Path to use for log files.
     **kwargs :              Extra arguments for connection.
 
     Output:
@@ -1008,8 +1008,6 @@ def sql_upload_data(
             # Change status
             succeeded = True
         except Exception as e:
-            # Set log path
-            log_file_path = "logs"
             # Set log file name
             log_file_name = "upload_data"
             # Create logs folder
@@ -1046,8 +1044,6 @@ def sql_upload_data(
 
     ## Create time execution logs
 
-    # Set log path
-    log_file_path = "logs"
     # Set log file name
     log_file_name = "upload_data_texec"
     # Create logs folder
@@ -1077,6 +1073,7 @@ def sql_copy_data(
     type_format="csv",
     name=None,
     max_n_try=3,
+    log_file_path="logs",
     **kwargs,
 ):
     """
@@ -1096,6 +1093,7 @@ def sql_copy_data(
     type_format:                String with type format to use for copy command. Default is 'csv'.
     name:                       Name to use for print statements.
     max_n_try:                  Integer with maximum number of tries to upload data.
+    log_file_path:              Path to use for log files.
     **kwargs:                   Extra arguments for connection.
 
     Output:
@@ -1121,8 +1119,6 @@ def sql_copy_data(
             # Change status
             succeeded = True
         except Exception as e:
-            # Set log path
-            log_file_path = "logs"
             # Set log file name
             log_file_name = "copy_data"
             # Create logs folder
@@ -1159,8 +1155,6 @@ def sql_copy_data(
 
     ## Create time execution logs
 
-    # Set log path
-    log_file_path = "logs"
     # Set log file name
     log_file_name = "copy_data_texec"
     # Create logs folder
