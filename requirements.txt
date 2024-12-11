@@ -11,9 +11,10 @@ pyspark==3.5.1
 redshift_connector==2.1.1
 Requests==2.32.3
 SQLAlchemy==2.0.31
-twine==5.1.0
 google-cloud-aiplatform==1.63.0
 google_cloud_bigquery==3.25.0
 google-cloud-bigquery-storage==2.25.0
 sqlalchemy-bigquery==1.11.0
 python-dotenv==1.0.1
+twine!=5.1.0
+build<0.10.0
