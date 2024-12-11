@@ -16,3 +16,4 @@ google-cloud-aiplatform==1.63.0
 google_cloud_bigquery==3.25.0
 google-cloud-bigquery-storage==2.25.0
 sqlalchemy-bigquery==1.11.0
+python-dotenv==1.0.1
