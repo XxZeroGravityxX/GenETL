@@ -46,16 +46,16 @@ def create_sqlalchemy_engine(
         ## Set extra configuration for connection
 
         # Engine prefix
-        if "myengine_prefix" not in conn_dict.keys():
-            conn_dict["myengine_prefix"] = "mssql+pyodbc"
+        if "engine_prefix" not in conn_dict.keys():
+            conn_dict["engine_prefix"] = "mssql+pyodbc"
         # Port
-        if "myport" not in conn_dict.keys():
-            conn_dict["myport"] = 1433
+        if "port" not in conn_dict.keys():
+            conn_dict["port"] = 1433
 
         ## Create engine
 
         engine = create_engine(
-            f'{conn_dict["myengine_prefix"]}://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/{conn_dict["mydatabase"]}',
+            f'{conn_dict["engine_prefix"]}://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}',
             **kwargs,
         )
 
@@ -79,10 +79,10 @@ def create_bigquery_engine(conn_dict: dict, **kwargs):
     ## Set extra parameters for connection
 
     # Location
-    location = conn_dict["mylocation"]
+    location = conn_dict["location"]
 
     ## Create custom connection string
-    custom_conn_str = f'bigquery://{conn_dict["mydatabase"]}'
+    custom_conn_str = f'bigquery://{conn_dict["database"]}'
 
     ## Create engine
     engine = create_sqlalchemy_engine(
@@ -111,16 +111,16 @@ def create_redshift_engine(conn_dict: dict, **kwargs):
     ## Set extra configuration for connection
 
     # Port
-    if "myport" not in conn_dict.keys():
-        conn_dict["myport"] = 5439
+    if "port" not in conn_dict.keys():
+        conn_dict["port"] = 5439
     # SSL mode
-    if "mysslmode" not in conn_dict.keys():
-        conn_dict["mysslmode"] = "verify-ca"
+    if "sslmode" not in conn_dict.keys():
+        conn_dict["sslmode"] = "verify-ca"
     # Connect args
-    connect_args = {"sslmode": conn_dict["mysslmode"]}
+    connect_args = {"sslmode": conn_dict["sslmode"]}
 
     ## Create custom connection string
-    custom_conn_str = f'redshift+redshift_connector://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/{conn_dict["mydatabase"]}'
+    custom_conn_str = f'redshift+redshift_connector://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
 
     ## Create engine
     engine = create_sqlalchemy_engine(
@@ -147,17 +147,17 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     try:
         try:  # Windows
             print(
-                f"Starting oracle client on Windows -> {conn_dict['myoracle_client_dir']}"
+                f"Starting oracle client on Windows -> {conn_dict['oracle_client_dir']}"
             )
             # Start oracle client
-            oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])
+            oracledb.init_oracle_client(lib_dir=conn_dict["oracle_client_dir"])
         except Exception as e:  # Linux
             print(f"Error starting oracle client on Windows -> {type(e)} - {e}")
             print(
-                f"Starting oracle client on Linux -> {conn_dict['myoracle_client_dir']}"
+                f"Starting oracle client on Linux -> {conn_dict['oracle_client_dir']}"
             )
             # Set environment variable
-            os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
+            os.environ["LD_LIBRARY_PATH"] = conn_dict["oracle_client_dir"]
             # Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
@@ -167,11 +167,11 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     ## Set extra configuration for connection
 
     # Port
-    if "myport" not in conn_dict.keys():
-        conn_dict["myport"] = 1521
+    if "port" not in conn_dict.keys():
+        conn_dict["port"] = 1521
 
     ## Create custom connection string
-    custom_conn_str = f'oracle+cx_oracle://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/?service_name={conn_dict["mydatabase"]}'
+    custom_conn_str = f'oracle+cx_oracle://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/?service_name={conn_dict["database"]}'
 
     ## Create engine
     engine = create_sqlalchemy_engine(
@@ -197,18 +197,18 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     ## Set extra configuration for connection
 
     # Port
-    if "myport" not in conn_dict.keys():
-        conn_dict["myport"] = 3306
+    if "port" not in conn_dict.keys():
+        conn_dict["port"] = 3306
     # Charset
-    if "mycharset" not in conn_dict.keys():
-        conn_dict["mycharset"] = "utf8mb4"
+    if "charset" not in conn_dict.keys():
+        conn_dict["charset"] = "utf8mb4"
     # Connect args
     connect_args = {
-        "charset": conn_dict["mycharset"],
+        "charset": conn_dict["charset"],
     }
 
     ## Create custom connection string
-    custom_conn_str = f'mysql+pymysql://{conn_dict["myusername"]}:{conn_dict["mypassword"]}@{conn_dict["myserver"]}:{conn_dict["myport"]}/{conn_dict["mydatabase"]}'
+    custom_conn_str = f'mysql+pymysql://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
 
     ## Create engine
     engine = create_sqlalchemy_engine(
@@ -284,17 +284,17 @@ def create_redshift_conn(conn_dict: dict, **kwargs):
     ## Set extra configuration for connection
 
     # Port
-    if "myport" not in conn_dict.keys():
-        conn_dict["myport"] = 5439
+    if "port" not in conn_dict.keys():
+        conn_dict["port"] = 5439
 
     ## Create connector
 
     conn = redshift_connector.connect(
-        host=conn_dict["myserver"],
-        database=conn_dict["mydatabase"],
-        port=conn_dict["myport"],
-        user=conn_dict["myusername"],
-        password=conn_dict["mypassword"],
+        host=conn_dict["server"],
+        database=conn_dict["database"],
+        port=conn_dict["port"],
+        user=conn_dict["username"],
+        password=conn_dict["password"],
         **kwargs,
     )
 
@@ -318,17 +318,17 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
     try:
         try:  # Windows
             print(
-                f"Starting oracle client on Windows -> {conn_dict['myoracle_client_dir']}"
+                f"Starting oracle client on Windows -> {conn_dict['oracle_client_dir']}"
             )
             # Start oracle client
-            oracledb.init_oracle_client(lib_dir=conn_dict["myoracle_client_dir"])
+            oracledb.init_oracle_client(lib_dir=conn_dict["oracle_client_dir"])
         except Exception as e:  # Linux
             print(f"Error starting oracle client on Windows -> {type(e)} - {e}")
             print(
-                f"Starting oracle client on Linux -> {conn_dict['myoracle_client_dir']}"
+                f"Starting oracle client on Linux -> {conn_dict['oracle_client_dir']}"
             )
             # Set environment variable
-            os.environ["LD_LIBRARY_PATH"] = conn_dict["myoracle_client_dir"]
+            os.environ["LD_LIBRARY_PATH"] = conn_dict["oracle_client_dir"]
             # Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
@@ -337,9 +337,9 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
 
     ## Create connector
     conn = oracledb.connect(
-        user=conn_dict["myusername"],
-        password=conn_dict["mypassword"],
-        dsn=f'{conn_dict["myserver"]}/{conn_dict["mydatabase"]}',
+        user=conn_dict["username"],
+        password=conn_dict["password"],
+        dsn=f'{conn_dict["server"]}/{conn_dict["database"]}',
         **kwargs,
     )
 
@@ -362,25 +362,25 @@ def create_mysql_conn(conn_dict: dict, **kwargs):
     ## Set extra configuration for connection
 
     # Driver
-    if "mydriver" not in conn_dict.keys():
-        conn_dict["mydriver"] = "{MySQL ODBC 8.0 Unicode Driver}"  # '{MySQL}'
+    if "driver" not in conn_dict.keys():
+        conn_dict["driver"] = "{MySQL ODBC 8.0 Unicode Driver}"  # '{MySQL}'
     # Port
-    if "myport" not in conn_dict.keys():
-        conn_dict["myport"] = 3306
+    if "port" not in conn_dict.keys():
+        conn_dict["port"] = 3306
     # Charset
-    if "mycharset" not in conn_dict.keys():
-        conn_dict["mycharset"] = "utf8mb4"
+    if "charset" not in conn_dict.keys():
+        conn_dict["charset"] = "utf8mb4"
 
     ## Create string for connection
 
     str_conn = (
-        f'DRIVER={conn_dict["mydriver"]};'
-        + f'SERVER={conn_dict["myserver"]};'
-        + f'DATABASE={conn_dict["mydatabase"]};'
-        + f'UID={conn_dict["myusername"]};'
-        + f'PWD={conn_dict["mypassword"]}'
-        + f'PORT={conn_dict["myport"]};'
-        + f'CHARSET={conn_dict["mycharset"]}'
+        f'DRIVER={conn_dict["driver"]};'
+        + f'SERVER={conn_dict["server"]};'
+        + f'DATABASE={conn_dict["database"]};'
+        + f'UID={conn_dict["username"]};'
+        + f'PWD={conn_dict["password"]}'
+        + f'PORT={conn_dict["port"]};'
+        + f'CHARSET={conn_dict["charset"]}'
     )
     ## Create connector
 
@@ -405,17 +405,17 @@ def create_pyodbc_conn(conn_dict: dict, **kwargs):
     ## Set extra configuration for connection
 
     # Driver
-    if "mydriver" not in conn_dict.keys():
-        conn_dict["mydriver"] = "{ODBC Driver 17 for SQL Server}"  # '{SQL Server}'
+    if "driver" not in conn_dict.keys():
+        conn_dict["driver"] = "{ODBC Driver 17 for SQL Server}"  # '{SQL Server}'
 
     ## Create string for connection
 
     str_conn = (
-        f'DRIVER={conn_dict["mydriver"]};'
-        + f'SERVER={conn_dict["myserver"]};'
-        + f'DATABASE={conn_dict["mydatabase"]};'
-        + f'UID={conn_dict["myusername"]};'
-        + f'PWD={conn_dict["mypassword"]}'
+        f'DRIVER={conn_dict["driver"]};'
+        + f'SERVER={conn_dict["server"]};'
+        + f'DATABASE={conn_dict["database"]};'
+        + f'UID={conn_dict["username"]};'
+        + f'PWD={conn_dict["password"]}'
     )
 
     ## Create connector
@@ -579,11 +579,11 @@ def to_sql_redshift_spark(data, schema, table_name, conn_dict, mode="append"):
     # Upload data to redshift (options configuration from https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html#data-source-option)
     spark_df.write.format("io.github.spark_redshift_community.spark.redshift").option(
         "url",
-        f'jdbc:redshift://{conn_dict["mydatabase"]}',
+        f'jdbc:redshift://{conn_dict["database"]}',
     ).option("dbtable", f"{schema}.{table_name}").option(
-        "user", conn_dict["myusername"]
+        "user", conn_dict["username"]
     ).option(
-        "password", conn_dict["mypassword"]
+        "password", conn_dict["password"]
     ).option(
         "tempdir", "s3://tmp-spark/"
     ).mode(

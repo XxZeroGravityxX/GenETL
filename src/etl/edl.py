@@ -28,8 +28,36 @@ class ExtractDeleteAndLoad(object):
 
         Parameters:
 
-        config_dict :           dict. Configuration dictionary with connection and data parameters.
-        conn_dict :             dict. Connection dictionary with connection parameters.
+        config_dict :           dict. Configuration dictionary with connection and data parameters. Should/could have
+                                the following keys for each process:
+                                    - <process_name>_connections_dict
+                                    - <process_name>_extra_vars_dict
+                                    - <process_name>_sql_stmts_dict
+                                    - <process_name>_tables_dict
+                                    - <process_name>_dynamodb_kwargs_dict
+                                    - <process_name>_urls_dict
+                                    - <process_name>_headers_dict
+                                    - <process_name>_params_dict
+                                    - <process_name>_datas_dict
+                                    - <process_name>_jsons_dict
+                                    - <process_name>_request_types_dict
+        conn_dict :             dict. Connection dictionary with connection information. Should/could have
+                                the following keys for each connection:
+                                    - oracle_client_dir
+                                    - server
+                                    - database
+                                    - username
+                                    - password
+                                    - charset
+                                    - encoding
+                                    - location
+                                    - engine_prefix
+                                    - port
+                                    - sslmode
+                                    - driver
+                                    - url
+                                    - key
+                                    - secret
         sqlalchemy_dict :       dict. Dictionary with sqlalchemy data types.
         globals_dict :          dict. Global variables dictionary.
         locals_dict :           dict. Local variables dictionary.
@@ -56,21 +84,21 @@ class ExtractDeleteAndLoad(object):
         processes_list = ["download", "delete", "truncate", "upload"]
         # Set connection keys
         conn_keys_list = [
-            "myoracle_client_dir",
-            "myserver",
-            "mydatabase",
-            "myusername",
-            "mypassword",
-            "mycharset",
-            "myencoding",
-            "mylocation",
-            "myengine_prefix",
-            "myport",
-            "mysslmode",
-            "mydriver",
-            "myurl",
-            "mykey",
-            "mysecret",
+            "oracle_client_dir",
+            "server",
+            "database",
+            "username",
+            "password",
+            "charset",
+            "encoding",
+            "location",
+            "engine_prefix",
+            "port",
+            "sslmode",
+            "driver",
+            "url",
+            "key",
+            "secret",
         ]
         # Set connection parameters
         self.conn_info_dict = {key: {} for key in processes_list}
@@ -95,9 +123,9 @@ class ExtractDeleteAndLoad(object):
                 self.conn_info_dict[p_name][key] = {
                     conn_key.lower(): (
                         self.connections_dict[
-                            f"{conn_key.lower()}_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                            self.configs_dict[f"{p_name}_connections_dict"][key]
                         ]
-                        if f"{conn_key.lower()}_{self.conn_type_dict[p_name][key]}_{self.conn_suff_dict[p_name][key]}"
+                        if self.configs_dict[f"{p_name}_connections_dict"][key]
                         in self.connections_dict.keys()
                         else ""
                     )
