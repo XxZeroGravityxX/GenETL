@@ -65,10 +65,8 @@ class ExtractDeleteAndLoad(object):
 
         ## Set class parameters
 
-        # Set configuration parameters
-        self.connections_dict = {
-            key.lower(): val for key, val in conn_dict.items()
-        }  # Lowercase keys
+        # Set configuration parameters (lowercase keys)
+        self.connections_dict = {key.lower(): val for key, val in conn_dict.items()}
         self.configs_dict = {key.lower(): val for key, val in config_dict.items()}
         self.sqlalchemy_dtypes = {
             key.lower(): val for key, val in sqlalchemy_dict.items()
@@ -82,24 +80,6 @@ class ExtractDeleteAndLoad(object):
             locals()[key] = val
         # Set processes names
         processes_list = ["download", "delete", "truncate", "upload"]
-        # Set connection keys
-        conn_keys_list = [
-            "oracle_client_dir",
-            "server",
-            "database",
-            "username",
-            "password",
-            "charset",
-            "encoding",
-            "location",
-            "engine_prefix",
-            "port",
-            "sslmode",
-            "driver",
-            "url",
-            "key",
-            "secret",
-        ]
         # Set connection parameters
         self.conn_info_dict = {key: {} for key in processes_list}
         self.conn_suff_dict = {key: {} for key in processes_list}
@@ -110,27 +90,13 @@ class ExtractDeleteAndLoad(object):
             if f"{p_name}_connections_dict" not in self.configs_dict.keys():
                 continue
             # Iterate over connections
-            for key in self.configs_dict[f"{p_name}_connections_dict"].keys():
+            for key, val in self.configs_dict[f"{p_name}_connections_dict"].items():
                 # Get connection suffix
-                self.conn_suff_dict[p_name][key] = self.configs_dict[
-                    f"{p_name}_connections_dict"
-                ][key].split("_")[-1]
+                self.conn_suff_dict[p_name][key] = val.split("_")[-1]
                 # Get connection type
-                self.conn_type_dict[p_name][key] = self.configs_dict[
-                    f"{p_name}_connections_dict"
-                ][key].split("_")[0]
+                self.conn_type_dict[p_name][key] = val.split("_")[0]
                 # Get connection dictionary
-                self.conn_info_dict[p_name][key] = {
-                    conn_key.lower(): (
-                        self.connections_dict[
-                            self.configs_dict[f"{p_name}_connections_dict"][key]
-                        ]
-                        if self.configs_dict[f"{p_name}_connections_dict"][key]
-                        in self.connections_dict.keys()
-                        else ""
-                    )
-                    for conn_key in conn_keys_list
-                }
+                self.conn_info_dict[p_name][key] = self.connections_dict[val]
 
     def delete_data(self, **kwargs):
         """
