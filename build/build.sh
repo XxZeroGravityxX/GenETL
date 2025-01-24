@@ -37,8 +37,5 @@ else
     echo "requirements.txt not found. Aborting..."
     exit 1
 fi
-## Change directory to the root folder of the project
-cd "$(dirname "$0")/../.."
-echo "Building from $(pwd)"
 ## Make build
 python build/build_pkg.py
