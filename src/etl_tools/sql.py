@@ -20,8 +20,7 @@ from etl_tools.execution import mk_err_logs, mk_texec_logs, parallel_execute
 
 def create_sqlalchemy_engine(
     conn_dict: dict,
-    custom_conn_str=None,
-    connect_args={},
+    custom_conn_str: str,
     **kwargs,
 ):
     """
@@ -31,7 +30,6 @@ def create_sqlalchemy_engine(
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
     custom_conn_str :           String with custom connection string.
-    connect_args :              Dictionary with extra arguments for connection.
     **kwargs :                  Extra arguments for connection.
 
     Output:
@@ -39,9 +37,9 @@ def create_sqlalchemy_engine(
     engine :                    Sqlalchemy engine.
     """
 
-    if custom_conn_str:
+    if custom_conn_str is not None:
         ## Create engine
-        engine = create_engine(custom_conn_str, connect_args=connect_args, **kwargs)
+        engine = create_engine(custom_conn_str, **kwargs)
     else:
         ## Set extra configuration for connection
 
@@ -53,7 +51,6 @@ def create_sqlalchemy_engine(
             conn_dict["port"] = 1433
 
         ## Create engine
-
         engine = create_engine(
             f'{conn_dict["engine_prefix"]}://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}',
             **kwargs,
@@ -87,7 +84,7 @@ def create_bigquery_engine(conn_dict: dict, **kwargs):
     ## Create engine
     engine = create_sqlalchemy_engine(
         conn_dict,
-        custom_conn_str=custom_conn_str,
+        custom_conn_str,
         location=location,
         **kwargs,
     )
@@ -124,7 +121,7 @@ def create_redshift_engine(conn_dict: dict, **kwargs):
 
     ## Create engine
     engine = create_sqlalchemy_engine(
-        conn_dict, custom_conn_str=custom_conn_str, connect_args=connect_args, **kwargs
+        conn_dict, custom_conn_str, connect_args=connect_args, **kwargs
     )
 
     return engine
@@ -174,9 +171,7 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     custom_conn_str = f'oracle+cx_oracle://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/?service_name={conn_dict["database"]}'
 
     ## Create engine
-    engine = create_sqlalchemy_engine(
-        conn_dict, custom_conn_str=custom_conn_str, **kwargs
-    )
+    engine = create_sqlalchemy_engine(conn_dict, custom_conn_str, **kwargs)
 
     return engine
 
@@ -213,7 +208,7 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     ## Create engine
     engine = create_sqlalchemy_engine(
         conn_dict,
-        custom_conn_str=custom_conn_str,
+        custom_conn_str,
         connect_args=connect_args,
         **kwargs,
     )
@@ -234,9 +229,7 @@ def create_sqlalchemy_conn(conn_dict: dict, custom_conn_str=None, **kwargs):
     conn :                      Sqlalchemy connector.
     """
     ## Create engine
-    engine = create_sqlalchemy_engine(
-        conn_dict, custom_conn_str=custom_conn_str, **kwargs
-    )
+    engine = create_sqlalchemy_engine(conn_dict, custom_conn_str, **kwargs)
 
     print("Connecting to database...")
     ## Make connection
@@ -639,7 +632,7 @@ def parallel_to_sql(
     if mode.lower() == "pyodbc":
         engine = create_sqlalchemy_engine(
             conn_dict,
-            custom_conn_str=custom_conn_str,
+            custom_conn_str,
             connect_args=connect_args,
             **kwargs,
         )
@@ -648,7 +641,7 @@ def parallel_to_sql(
     elif mode.lower() == "sqlalchemy":
         engine = create_sqlalchemy_engine(
             conn_dict,
-            custom_conn_str=custom_conn_str,
+            custom_conn_str,
             connect_args=connect_args,
             **kwargs,
         )
@@ -805,7 +798,7 @@ def sql_read_data(
             if mode == "pyodbc":
                 engine_obj = create_sqlalchemy_engine(
                     conn_dict,
-                    custom_conn_str=custom_conn_str,
+                    custom_conn_str,
                     connect_args=connect_args,
                     **kwargs,
                 )
@@ -814,7 +807,7 @@ def sql_read_data(
             elif mode == "sqlalchemy":
                 engine_obj = create_sqlalchemy_engine(
                     conn_dict,
-                    custom_conn_str=custom_conn_str,
+                    custom_conn_str,
                     connect_args=connect_args,
                     **kwargs,
                 )
@@ -932,6 +925,18 @@ def sql_upload_data(
 
     if n_jobs == -1:
         n_jobs = multiprocessing.cpu_count()
+
+    ## Create schema if not exists (tables are automatically created by SQLAlchemy)
+
+    try:
+        ### Execute command
+        response_rows_affected = sql_exec_stmt(
+            f"CREATE SCHEMA {schema};", conn_dict, mode=mode, **kwargs
+        )
+        ### Show rows affected
+        print(f"Schema {schema} created -> {response_rows_affected}")
+    except Exception as e:
+        print(f"Error creating schema {schema} -> {type(e)} - {e}")
 
     ## Upload data
 
