@@ -12,6 +12,7 @@ def API_request(
     files=None,
     request_type="GET",
     timeout=None,
+    **kwargs,
 ):
     """
     Make a request to an API.
@@ -42,36 +43,73 @@ def API_request(
             params=params,
             files=files,
             timeout=timeout,
+            **kwargs,
         ).json()
     elif request_type.lower() == "post":
         # A POST request to the API
         response = requests.post(
-            url=url, data=data, headers=headers, json=json, files=files, timeout=timeout
+            url=url,
+            data=data,
+            headers=headers,
+            json=json,
+            files=files,
+            timeout=timeout,
+            **kwargs,
         ).json()
     elif request_type.lower() == "put":
         # A PUT request to the API
         response = requests.put(
-            url=url, data=data, headers=headers, json=json, files=files, timeout=timeout
+            url=url,
+            data=data,
+            headers=headers,
+            json=json,
+            files=files,
+            timeout=timeout,
+            **kwargs,
         ).json()
     elif request_type.lower() == "delete":
         # A DELETE request to the API
         response = requests.delete(
-            url=url, data=data, headers=headers, json=json, files=files, timeout=timeout
+            url=url,
+            data=data,
+            headers=headers,
+            json=json,
+            files=files,
+            timeout=timeout,
+            **kwargs,
         ).json()
     elif request_type.lower() == "patch":
         # A PATCH request to the API
         response = requests.patch(
-            url=url, data=data, headers=headers, json=json, files=files, timeout=timeout
+            url=url,
+            data=data,
+            headers=headers,
+            json=json,
+            files=files,
+            timeout=timeout,
+            **kwargs,
         ).json()
     elif request_type.lower() == "head":
         # A HEAD request to the API
         response = requests.head(
-            url=url, data=data, headers=headers, json=json, files=files, timeout=timeout
+            url=url,
+            data=data,
+            headers=headers,
+            json=json,
+            files=files,
+            timeout=timeout,
+            **kwargs,
         ).json()
     elif request_type.lower() == "options":
         # A OPTIONS request to the API
         response = requests.options(
-            url=url, data=data, headers=headers, json=json, files=files, timeout=timeout
+            url=url,
+            data=data,
+            headers=headers,
+            json=json,
+            files=files,
+            timeout=timeout,
+            **kwargs,
         ).json()
     else:
         raise ValueError(f"Invalid request type: {request_type}")

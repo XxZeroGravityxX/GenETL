@@ -20,7 +20,7 @@ from etl_tools.execution import mk_err_logs, mk_texec_logs, parallel_execute
 
 def create_sqlalchemy_engine(
     conn_dict: dict,
-    custom_conn_str: str,
+    custom_conn_str: str | None = None,
     **kwargs,
 ):
     """
@@ -50,9 +50,12 @@ def create_sqlalchemy_engine(
         if "port" not in conn_dict.keys():
             conn_dict["port"] = 1433
 
+        ## Create custom connection string
+        custom_conn_str = f'{conn_dict["engine_prefix"]}://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+
         ## Create engine
         engine = create_engine(
-            f'{conn_dict["engine_prefix"]}://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}',
+            custom_conn_str,
             **kwargs,
         )
 
@@ -76,15 +79,19 @@ def create_bigquery_engine(conn_dict: dict, **kwargs):
     ## Set extra parameters for connection
 
     # Location
-    location = conn_dict["location"]
+    location = conn_dict["location"] if "location" in conn_dict.keys() else "us-east1"
 
     ## Create custom connection string
-    custom_conn_str = f'bigquery://{conn_dict["database"]}'
+    custom_conn_str = (
+        conn_dict["custom_conn_str"]
+        if "custom_conn_str" in conn_dict.keys()
+        else f'bigquery://{conn_dict["database"]}'
+    )
 
     ## Create engine
     engine = create_sqlalchemy_engine(
         conn_dict,
-        custom_conn_str,
+        custom_conn_str=custom_conn_str,
         location=location,
         **kwargs,
     )
@@ -99,6 +106,7 @@ def create_redshift_engine(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -110,18 +118,23 @@ def create_redshift_engine(conn_dict: dict, **kwargs):
     # Port
     if "port" not in conn_dict.keys():
         conn_dict["port"] = 5439
-    # SSL mode
-    if "sslmode" not in conn_dict.keys():
-        conn_dict["sslmode"] = "verify-ca"
     # Connect args
-    connect_args = {"sslmode": conn_dict["sslmode"]}
+    connect_args = {
+        "sslmode": (
+            conn_dict["sslmode"] if "sslmode" in conn_dict.keys() else "verify-ca"
+        )
+    }
 
     ## Create custom connection string
-    custom_conn_str = f'redshift+redshift_connector://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+    custom_conn_str = (
+        conn_dict["custom_conn_str"]
+        if "custom_conn_str" in conn_dict.keys()
+        else f'redshift+redshift_connector://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+    )
 
     ## Create engine
     engine = create_sqlalchemy_engine(
-        conn_dict, custom_conn_str, connect_args=connect_args, **kwargs
+        conn_dict, custom_conn_str=custom_conn_str, connect_args=connect_args, **kwargs
     )
 
     return engine
@@ -134,6 +147,7 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -168,10 +182,16 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
         conn_dict["port"] = 1521
 
     ## Create custom connection string
-    custom_conn_str = f'oracle+cx_oracle://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/?service_name={conn_dict["database"]}'
+    custom_conn_str = (
+        conn_dict["custom_conn_str"]
+        if "custom_conn_str" in conn_dict.keys()
+        else f'oracle+cx_oracle://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/?service_name={conn_dict["database"]}'
+    )
 
     ## Create engine
-    engine = create_sqlalchemy_engine(conn_dict, custom_conn_str, **kwargs)
+    engine = create_sqlalchemy_engine(
+        conn_dict, custom_conn_str=custom_conn_str, **kwargs
+    )
 
     return engine
 
@@ -183,6 +203,7 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -194,21 +215,22 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     # Port
     if "port" not in conn_dict.keys():
         conn_dict["port"] = 3306
-    # Charset
-    if "charset" not in conn_dict.keys():
-        conn_dict["charset"] = "utf8mb4"
     # Connect args
     connect_args = {
-        "charset": conn_dict["charset"],
+        "charset": conn_dict["charset"] if "charset" in conn_dict.keys() else "utf8mb4",
     }
 
     ## Create custom connection string
-    custom_conn_str = f'mysql+pymysql://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+    custom_conn_str = (
+        conn_dict["custom_conn_str"]
+        if "custom_conn_str" in conn_dict.keys()
+        else f'mysql+pymysql://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+    )
 
     ## Create engine
     engine = create_sqlalchemy_engine(
         conn_dict,
-        custom_conn_str,
+        custom_conn_str=custom_conn_str,
         connect_args=connect_args,
         **kwargs,
     )
@@ -223,13 +245,17 @@ def create_sqlalchemy_conn(conn_dict: dict, custom_conn_str=None, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    custom_conn_str :           String with custom connection string.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
     conn :                      Sqlalchemy connector.
     """
     ## Create engine
-    engine = create_sqlalchemy_engine(conn_dict, custom_conn_str, **kwargs)
+    engine = create_sqlalchemy_engine(
+        conn_dict, custom_conn_str=custom_conn_str, **kwargs
+    )
 
     print("Connecting to database...")
     ## Make connection
@@ -268,6 +294,7 @@ def create_redshift_conn(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -301,6 +328,7 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -346,6 +374,7 @@ def create_mysql_conn(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -389,6 +418,7 @@ def create_pyodbc_conn(conn_dict: dict, **kwargs):
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -544,7 +574,7 @@ def to_sql_executemany(data, conn_dict, schema, table_name, mode, **kwargs):
     return response_rows_affected  # Response with number of rows inserted (should be equal to len(data))
 
 
-def to_sql_redshift_spark(data, schema, table_name, conn_dict, mode="append"):
+def to_sql_redshift_spark(data, schema, table_name, conn_dict, mode="append", **kwargs):
     """
     Function to upload data to redshift with spark.
 
@@ -555,6 +585,7 @@ def to_sql_redshift_spark(data, schema, table_name, conn_dict, mode="append"):
     table_name :                String with table name to upload data.
     conn_dict :                 Dictionary with server, database, uid and pwd information.
     mode :                      String with mode to use. Options are 'append', 'overwrite', 'ignore' and 'error'.
+    **kwargs :                  Extra arguments for connection.
 
     Output:
 
@@ -632,7 +663,7 @@ def parallel_to_sql(
     if mode.lower() == "pyodbc":
         engine = create_sqlalchemy_engine(
             conn_dict,
-            custom_conn_str,
+            custom_conn_str=custom_conn_str,
             connect_args=connect_args,
             **kwargs,
         )
@@ -641,7 +672,7 @@ def parallel_to_sql(
     elif mode.lower() == "sqlalchemy":
         engine = create_sqlalchemy_engine(
             conn_dict,
-            custom_conn_str,
+            custom_conn_str=custom_conn_str,
             connect_args=connect_args,
             **kwargs,
         )
@@ -759,9 +790,9 @@ def parallel_to_sql(
 def sql_read_data(
     sql_stmt,
     conn_dict,
-    mode="sqlalchemy",
     custom_conn_str=None,
     connect_args={},
+    mode="sqlalchemy",
     name=None,
     max_n_try=3,
     log_file_path="logs",
@@ -774,8 +805,8 @@ def sql_read_data(
 
     sql_stmt :            SQL statement to execute.
     conn_dict :            Dictionary with server, database, uid and pwd information.
-    mode :                 Mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
     custom_conn_str :      Custom connection string.
+    mode :                 Mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
     connect_args :         Custom connection argument.
     name :                 Name to use for print statements.
     max_n_try :            Maximum number of tries to execute the query.
@@ -798,7 +829,7 @@ def sql_read_data(
             if mode == "pyodbc":
                 engine_obj = create_sqlalchemy_engine(
                     conn_dict,
-                    custom_conn_str,
+                    custom_conn_str=custom_conn_str,
                     connect_args=connect_args,
                     **kwargs,
                 )
@@ -807,7 +838,7 @@ def sql_read_data(
             elif mode == "sqlalchemy":
                 engine_obj = create_sqlalchemy_engine(
                     conn_dict,
-                    custom_conn_str,
+                    custom_conn_str=custom_conn_str,
                     connect_args=connect_args,
                     **kwargs,
                 )
@@ -881,8 +912,8 @@ def sql_upload_data(
     schema,
     table_name,
     conn_dict,
-    mode="sqlalchemy",
     custom_conn_str=None,
+    mode="sqlalchemy",
     connect_args={},
     name=None,
     chunksize=1000,
@@ -903,8 +934,8 @@ def sql_upload_data(
     schema :                Schema to upload data to.
     table_name :            Table name to upload data to.
     conn_dict :             Dictionarie with server, database, uid and pwd information.
-    mode :                  String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
     custom_conn_str :       String with custom connection string.
+    mode :                  String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
     connect_args :          Dictionarie with connection arguments.
     name :                  Name to use for print statements.
     chunksize :             Integer with chunksize to use for upload.

@@ -116,9 +116,6 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Delete configurations are not set! Please set them first."
             )
-        # Set keyword arguments as global variables
-        for key, val in kwargs.items():
-            globals()[key] = val
         # Iterate over connections
         for key in self.configs_dict["delete_connections_dict"].keys():
             print(f"Deleting data for {key}...")
@@ -200,6 +197,7 @@ class ExtractDeleteAndLoad(object):
                         stmt,
                         conn_dict,
                         mode=conn_type,
+                        **kwargs,
                     )
                 except Exception as e:
                     print(f"Error deleting data: {type(e)} - {e}")
@@ -220,9 +218,6 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Truncate configurations are not set! Please set them first."
             )
-        # Set keyword arguments as global variables
-        for key, val in kwargs.items():
-            globals()[key] = val
         # Iterate over connections
         for key in self.configs_dict["truncate_connections_dict"].keys():
             print(f"Truncating data for {key}...")
@@ -278,6 +273,7 @@ class ExtractDeleteAndLoad(object):
                         stmt,
                         conn_dict,
                         mode=conn_type,
+                        **kwargs,
                     )
                 except Exception as e:
                     print(f"Error truncating data: {type(e)} - {e}")
@@ -298,9 +294,6 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Download configurations are not set! Please set them first."
             )
-        # Set keyword arguments as global variables
-        for key, val in kwargs.items():
-            globals()[key] = val
         # Initialize raw data
         self.raw_data = {}
         # Iterate over connections
@@ -339,20 +332,13 @@ class ExtractDeleteAndLoad(object):
                 print(
                     f"     DynamoDB table: {self.configs_dict['download_tables_dict'][key]}"
                 )
-                # Evaluate keyword arguments
-                dynamo_kwargs_eval = {
-                    kw_key: eval(kw_val) if "eval(" in kw_val else kw_val
-                    for kw_key, kw_val in self.configs_dict[
-                        "download_dynamodb_kwargs_dict"
-                    ][key].items()
-                }
                 # Download data from DynamoDB
                 data = dynamodb_read_data(
                     self.configs_dict["download_tables_dict"][key],
                     self.connections_dict[f"aws_access_key_id_{conn_suff}"],
                     self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
                     self.connections_dict[f"region_name_{conn_suff}"],
-                    **dynamo_kwargs_eval,
+                    **kwargs,
                 )
             elif conn_type == "s3":
                 pass
@@ -388,6 +374,7 @@ class ExtractDeleteAndLoad(object):
                     request_type=(
                         self.configs_dict["download_request_types_dict"][key]
                     ),
+                    **kwargs,
                 )
             else:
                 # Get download statement
@@ -404,12 +391,12 @@ class ExtractDeleteAndLoad(object):
                 data = sql_read_data(
                     stmt,
                     conn_dict,
-                    mode=conn_type,
                     custom_conn_str=(
                         self.configs_dict["download_custom_conn_strs_dict"][key]
                         if "download_custom_conn_strs_dict" in self.configs_dict.keys()
                         else None
                     ),
+                    mode=conn_type,
                     connect_args=(
                         self.configs_dict["download_connect_args_dict"][key]
                         if "download_connect_args_dict" in self.configs_dict.keys()
@@ -430,6 +417,7 @@ class ExtractDeleteAndLoad(object):
                         if "log_file_path" in self.configs_dict.keys()
                         else "logs"
                     ),
+                    **kwargs,
                 )
             # Add data to raw data dictionary
             self.raw_data[key] = data.copy()
@@ -456,9 +444,6 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Upload configurations are not set! Please set them first."
             )
-        # Set keyword arguments as global variables
-        for key, val in kwargs.items():
-            globals()[key] = val
         # Iterate over connections
         for key in self.configs_dict["upload_connections_dict"].keys():
             print(f"Uploading data for {key}...")
@@ -497,6 +482,7 @@ class ExtractDeleteAndLoad(object):
                         if "s3_csv_encodings_dict" in self.configs_dict.keys()
                         else "utf-8"
                     ),
+                    **kwargs,
                 )
             elif conn_type == "api":
                 print(
@@ -523,6 +509,7 @@ class ExtractDeleteAndLoad(object):
                         else None
                     ),
                     request_type=self.configs_dict["upload_request_types_dict"][key],
+                    **kwargs,
                 )
                 print(f"     API response: {api_response}")
             else:
@@ -564,6 +551,7 @@ class ExtractDeleteAndLoad(object):
                             if "s3_csv_encodings_dict" in self.configs_dict.keys()
                             else "utf-8"
                         ),
+                        **kwargs,
                     )
                     # Copy data from S3 to database
                     sql_copy_data(
@@ -585,6 +573,7 @@ class ExtractDeleteAndLoad(object):
                             if "log_file_path" in self.configs_dict.keys()
                             else "logs"
                         ),
+                        **kwargs,
                     )
                 else:  # Upload data to other databases
                     print(
@@ -596,13 +585,13 @@ class ExtractDeleteAndLoad(object):
                         self.configs_dict["upload_schemas_dict"][key],
                         self.configs_dict["upload_tables_dict"][key],
                         conn_dict,
-                        mode=conn_type,
                         custom_conn_str=(
                             self.configs_dict["upload_custom_conn_strs_dict"][key]
                             if "upload_custom_conn_strs_dict"
                             in self.configs_dict.keys()
                             else None
                         ),
+                        mode=conn_type,
                         connect_args=(
                             self.configs_dict["upload_connect_args_dict"][key]
                             if "upload_connect_args_dict" in self.configs_dict.keys()
@@ -635,6 +624,7 @@ class ExtractDeleteAndLoad(object):
                             if "log_file_path" in self.configs_dict.keys()
                             else "logs"
                         ),
+                        **kwargs,
                     )
 
         pass
