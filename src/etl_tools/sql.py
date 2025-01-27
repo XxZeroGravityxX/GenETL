@@ -668,7 +668,12 @@ def parallel_to_sql(
             **kwargs,
         )
     elif mode.lower() == "redshift":
-        engine = create_redshift_engine(conn_dict, **kwargs)
+        engine = create_redshift_engine(
+            conn_dict,
+            custom_conn_str=custom_conn_str,
+            connect_args=connect_args,
+            **kwargs,
+        )
     elif mode.lower() == "sqlalchemy":
         engine = create_sqlalchemy_engine(
             conn_dict,
@@ -677,12 +682,27 @@ def parallel_to_sql(
             **kwargs,
         )
     elif mode.lower() == "oracledb":
-        engine = create_oracle_engine(conn_dict, **kwargs)
+        engine = create_oracle_engine(
+            conn_dict,
+            custom_conn_str=custom_conn_str,
+            connect_args=connect_args,
+            **kwargs,
+        )
     elif mode.lower() == "bigquery":
-        engine = create_bigquery_engine(conn_dict, **kwargs)
+        engine = create_bigquery_engine(
+            conn_dict,
+            custom_conn_str=custom_conn_str,
+            connect_args=connect_args,
+            **kwargs,
+        )
 
     elif mode.lower() == "mysql":
-        engine = create_mysql_engine(conn_dict, **kwargs)
+        engine = create_mysql_engine(
+            conn_dict,
+            custom_conn_str=custom_conn_str,
+            connect_args=connect_args,
+            **kwargs,
+        )
 
     print("Uploading data...")
     ## Upload data
@@ -834,7 +854,12 @@ def sql_read_data(
                     **kwargs,
                 )
             elif mode == "redshift":
-                engine_obj = create_redshift_engine(conn_dict, **kwargs)
+                engine_obj = create_redshift_engine(
+                    conn_dict,
+                    custom_conn_str=custom_conn_str,
+                    connect_args=connect_args,
+                    **kwargs,
+                )
             elif mode == "sqlalchemy":
                 engine_obj = create_sqlalchemy_engine(
                     conn_dict,
@@ -843,11 +868,26 @@ def sql_read_data(
                     **kwargs,
                 )
             elif mode == "oracledb":
-                engine_obj = create_oracle_engine(conn_dict, **kwargs)
+                engine_obj = create_oracle_engine(
+                    conn_dict,
+                    custom_conn_str=custom_conn_str,
+                    connect_args=connect_args,
+                    **kwargs,
+                )
             elif mode == "bigquery":
-                engine_obj = create_bigquery_engine(conn_dict, **kwargs)
+                engine_obj = create_bigquery_engine(
+                    conn_dict,
+                    custom_conn_str=custom_conn_str,
+                    connect_args=connect_args,
+                    **kwargs,
+                )
             elif mode == "mysql":
-                engine_obj = create_mysql_engine(conn_dict, **kwargs)
+                engine_obj = create_mysql_engine(
+                    conn_dict,
+                    custom_conn_str=custom_conn_str,
+                    connect_args=connect_args,
+                    **kwargs,
+                )
             # Read sql statement
             df = pd.read_sql(sql_stmt, engine_obj)
             # Dispose connections
