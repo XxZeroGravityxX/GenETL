@@ -13,14 +13,14 @@ import multiprocessing
 
 # Import submodules
 from sqlalchemy import create_engine
+from sqlalchemy.schema import DDL
 
 # Import custom modules
 from etl_tools.execution import mk_err_logs, mk_texec_logs, parallel_execute
 
 
 def create_sqlalchemy_engine(
-    conn_dict: dict,
-    custom_conn_str: str | None = None,
+    conn_dict: dict | None = None,
     **kwargs,
 ):
     """
@@ -29,7 +29,8 @@ def create_sqlalchemy_engine(
     Parameters:
 
     conn_dict :                 Dictionary with server, database, uid and pwd information.
-    custom_conn_str :           String with custom connection string.
+                                Must contain a custom connection string "custom_conn_str", or,
+                                "engine_prefix", "username", "password", "server", "port" and "database" to create it.
     **kwargs :                  Extra arguments for connection.
 
     Output:
@@ -37,27 +38,43 @@ def create_sqlalchemy_engine(
     engine :                    Sqlalchemy engine.
     """
 
-    if custom_conn_str is not None:
-        ## Create engine
-        engine = create_engine(custom_conn_str, **kwargs)
-    else:
-        ## Set extra configuration for connection
+    # Create custom connection string
 
-        # Engine prefix
-        if "engine_prefix" not in conn_dict.keys():
-            conn_dict["engine_prefix"] = "mssql+pyodbc"
-        # Port
-        if "port" not in conn_dict.keys():
-            conn_dict["port"] = 1433
-
-        ## Create custom connection string
-        custom_conn_str = f'{conn_dict["engine_prefix"]}://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
-
-        ## Create engine
-        engine = create_engine(
-            custom_conn_str,
-            **kwargs,
+    ## Default connection string
+    default_custom_conn_str = "{}://{}:{}@{}:{}/{}".format(
+        (
+            conn_dict["engine_prefix"]
+            if "engine_prefix" in conn_dict.keys()
+            else "mssql+pyodbc"
+        ),
+        conn_dict["username"] if "username" in conn_dict.keys() else None,
+        conn_dict["password"] if "password" in conn_dict.keys() else None,
+        conn_dict["server"] if "server" in conn_dict.keys() else None,
+        conn_dict["port"] if "port" in conn_dict.keys() else 1433,
+        conn_dict["database"] if "database" in conn_dict.keys() else None,
+    )
+    ## Custom connection string
+    custom_conn_str = (
+        conn_dict["custom_conn_str"]
+        if "custom_conn_str" in conn_dict.keys()
+        else (
+            kwargs["custom_conn_str"]
+            if (
+                "custom_conn_str" in kwargs.keys()
+                and kwargs["custom_conn_str"] is not None
+            )
+            else default_custom_conn_str
         )
+    )
+
+    # Remove keys from kwargs
+    new_kwargs = {k: v for k, v in kwargs.items() if k not in ["custom_conn_str"]}
+
+    ## Create engine
+    engine = create_engine(
+        custom_conn_str,
+        **new_kwargs,
+    )
 
     return engine
 
@@ -76,24 +93,49 @@ def create_bigquery_engine(conn_dict: dict, **kwargs):
     engine :                    Bigquery engine.
     """
 
-    ## Set extra parameters for connection
+    # Set extra parameters for connection
 
-    # Location
-    location = conn_dict["location"] if "location" in conn_dict.keys() else "us-east1"
-
+    ## Location
+    location = (
+        conn_dict["location"]
+        if "location" in conn_dict.keys()
+        else (
+            kwargs["location"]
+            if ("location" in kwargs.keys() and kwargs["location"] is not None)
+            else "us-east1"
+        )
+    )
     ## Create custom connection string
+
+    ### Default connection string
+    default_custom_conn_str = "{}://{}".format(
+        "bigquery",
+        conn_dict["database"],
+    )
+    ### Custom connection string
     custom_conn_str = (
         conn_dict["custom_conn_str"]
         if "custom_conn_str" in conn_dict.keys()
-        else f'bigquery://{conn_dict["database"]}'
+        else (
+            kwargs["custom_conn_str"]
+            if (
+                "custom_conn_str" in kwargs.keys()
+                and kwargs["custom_conn_str"] is not None
+            )
+            else default_custom_conn_str
+        )
     )
 
-    ## Create engine
+    # Remove keys from kwargs
+    new_kwargs = {
+        k: v for k, v in kwargs.items() if k not in ["location", "custom_conn_str"]
+    }
+    # Create engine
     engine = create_sqlalchemy_engine(
         conn_dict,
         custom_conn_str=custom_conn_str,
         location=location,
-        **kwargs,
+        **new_kwargs,
     )
 
     return engine
@@ -113,28 +155,66 @@ def create_redshift_engine(conn_dict: dict, **kwargs):
     engine :                    Redshift engine.
     """
 
-    ## Set extra configuration for connection
+    # Set extra configuration for connection
 
-    # Port
-    if "port" not in conn_dict.keys():
-        conn_dict["port"] = 5439
-    # Connect args
-    connect_args = {
-        "sslmode": (
-            conn_dict["sslmode"] if "sslmode" in conn_dict.keys() else "verify-ca"
+    ## Port
+    port = (
+        conn_dict["port"]
+        if "port" in conn_dict.keys()
+        else (
+            kwargs["port"]
+            if ("port" in kwargs.keys() and kwargs["port"] is not None)
+            else 5439
         )
-    }
+    )
+    ## Connect args
+    connect_args = (
+        {"sslmode": conn_dict["sslmode"]}
+        if "sslmode" in conn_dict.keys()
+        else (
+            kwargs["connect_args"]
+            if ("connect_args" in kwargs.keys() and kwargs["connect_args"] is not {})
+            else {"ssl_mode": "verify-ca"}
+        )
+    )
 
     ## Create custom connection string
+
+    ### Default connection string
+    default_custom_conn_str = "{}://{}:{}@{}:{}/{}".format(
+        "redshift+redshift_connector",
+        conn_dict["username"],
+        conn_dict["password"],
+        conn_dict["server"],
+        port,
+        conn_dict["database"],
+    )
+    ### Custom connection string
     custom_conn_str = (
         conn_dict["custom_conn_str"]
         if "custom_conn_str" in conn_dict.keys()
-        else f'redshift+redshift_connector://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+        else (
+            kwargs["custom_conn_str"]
+            if (
+                "custom_conn_str" in kwargs.keys()
+                and kwargs["custom_conn_str"] is not None
+            )
+            else default_custom_conn_str
+        )
     )
 
-    ## Create engine
+    # Remove keys from kwargs
+    new_kwargs = {
+        k: v
+        for k, v in kwargs.items()
+        if k not in ["port", "connect_args", "custom_conn_str"]
+    }
+    # Create engine
     engine = create_sqlalchemy_engine(
-        conn_dict, custom_conn_str=custom_conn_str, connect_args=connect_args, **kwargs
+        conn_dict,
+        custom_conn_str=custom_conn_str,
+        connect_args=connect_args,
+        **new_kwargs,
     )
 
     return engine
@@ -154,43 +234,72 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     engine :                    Oracle engine.
     """
 
-    ## Start oracle client
+    # Start oracle client
     try:
         try:  # Windows
             print(
                 f"Starting oracle client on Windows -> {conn_dict['oracle_client_dir']}"
             )
-            # Start oracle client
+            ## Start oracle client
             oracledb.init_oracle_client(lib_dir=conn_dict["oracle_client_dir"])
         except Exception as e:  # Linux
             print(f"Error starting oracle client on Windows -> {type(e)} - {e}")
             print(
                 f"Starting oracle client on Linux -> {conn_dict['oracle_client_dir']}"
             )
-            # Set environment variable
+            ## Set environment variable
             os.environ["LD_LIBRARY_PATH"] = conn_dict["oracle_client_dir"]
-            # Start oracle client
+            ## Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
         print(f"Error starting oracle client -> {type(e)} - {e}")
         pass
 
-    ## Set extra configuration for connection
+    # Set extra configuration for connection
 
-    # Port
-    if "port" not in conn_dict.keys():
-        conn_dict["port"] = 1521
+    ## Port
+    port = (
+        conn_dict["port"]
+        if "port" in conn_dict.keys()
+        else (
+            kwargs["port"]
+            if ("port" in kwargs.keys() and kwargs["port"] is not None)
+            else 1521
+        )
+    )
 
     ## Create custom connection string
+
+    ### Default connection string
+    default_custom_conn_str = "{}://{}:{}@{}:{}/?service_name={}".format(
+        "oracle+cx_oracle",
+        conn_dict["username"],
+        conn_dict["password"],
+        conn_dict["server"],
+        port,
+        conn_dict["database"],
+    )
+    ### Custom connection string
     custom_conn_str = (
         conn_dict["custom_conn_str"]
         if "custom_conn_str" in conn_dict.keys()
-        else f'oracle+cx_oracle://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/?service_name={conn_dict["database"]}'
+        else (
+            kwargs["custom_conn_str"]
+            if (
+                "custom_conn_str" in kwargs.keys()
+                and kwargs["custom_conn_str"] is not None
+            )
+            else default_custom_conn_str
+        )
     )
 
-    ## Create engine
+    # Remove keys from kwargs
+    new_kwargs = {
+        k: v for k, v in kwargs.items() if k not in ["port", "custom_conn_str"]
+    }
+    # Create engine
     engine = create_sqlalchemy_engine(
-        conn_dict, custom_conn_str=custom_conn_str, **kwargs
+        conn_dict, custom_conn_str=custom_conn_str, **new_kwargs
     )
 
     return engine
@@ -210,29 +319,67 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     engine :                    Mysql engine.
     """
 
-    ## Set extra configuration for connection
+    # Set extra configuration for connection
 
-    # Port
-    if "port" not in conn_dict.keys():
-        conn_dict["port"] = 3306
-    # Connect args
-    connect_args = {
-        "charset": conn_dict["charset"] if "charset" in conn_dict.keys() else "utf8mb4",
-    }
+    ## Port
+    port = (
+        conn_dict["port"]
+        if "port" in conn_dict.keys()
+        else (
+            kwargs["port"]
+            if ("port" in kwargs.keys() and kwargs["port"] is not None)
+            else 3306
+        )
+    )
+    ## Connect args
+    connect_args = (
+        {"charset": conn_dict["charset"]}
+        if "charset" in conn_dict.keys()
+        else (
+            kwargs["connect_args"]
+            if ("connect_args" in kwargs.keys() and kwargs["connect_args"] is not {})
+            else {"charset": "utf8mb4"}
+        )
+    )
 
     ## Create custom connection string
+
+    ### Default connection string
+    default_custom_conn_str = "{}://{}:{}@{}:{}/{}".format(
+        "mysql+pymysql",
+        conn_dict["username"],
+        conn_dict["password"],
+        conn_dict["server"],
+        port,
+        conn_dict["database"],
+    )
+    ### Custom connection string
     custom_conn_str = (
         conn_dict["custom_conn_str"]
         if "custom_conn_str" in conn_dict.keys()
-        else f'mysql+pymysql://{conn_dict["username"]}:{conn_dict["password"]}@{conn_dict["server"]}:{conn_dict["port"]}/{conn_dict["database"]}'
+        else (
+            kwargs["custom_conn_str"]
+            if (
+                "custom_conn_str" in kwargs.keys()
+                and kwargs["custom_conn_str"] is not None
+            )
+            else default_custom_conn_str
+        )
     )
 
-    ## Create engine
+    # Remove keys from kwargs
+    new_kwargs = {
+        k: v
+        for k, v in kwargs.items()
+        if k not in ["port", "connect_args", "custom_conn_str"]
+    }
+
+    # Create engine
     engine = create_sqlalchemy_engine(
         conn_dict,
         custom_conn_str=custom_conn_str,
         connect_args=connect_args,
-        **kwargs,
+        **new_kwargs,
     )
 
     return engine
@@ -252,13 +399,13 @@ def create_sqlalchemy_conn(conn_dict: dict, custom_conn_str=None, **kwargs):
 
     conn :                      Sqlalchemy connector.
     """
-    ## Create engine
+    # Create engine
     engine = create_sqlalchemy_engine(
         conn_dict, custom_conn_str=custom_conn_str, **kwargs
     )
 
     print("Connecting to database...")
-    ## Make connection
+    # Make connection
     conn = engine.connect()
 
     return conn
@@ -277,11 +424,11 @@ def create_bigquery_conn(conn_dict: dict, **kwargs):
 
     conn :                      Bigquery connector.
     """
-    ## Create engine
+    # Create engine
     engine = create_bigquery_engine(conn_dict, **kwargs)
 
     print("Connecting to database...")
-    ## Make connection
+    # Make connection
     conn = engine.connect()
 
     return conn
@@ -301,13 +448,13 @@ def create_redshift_conn(conn_dict: dict, **kwargs):
     conn :                      Redshift connector.
     """
 
-    ## Set extra configuration for connection
+    # Set extra configuration for connection
 
     # Port
     if "port" not in conn_dict.keys():
         conn_dict["port"] = 5439
 
-    ## Create connector
+    # Create connector
 
     conn = redshift_connector.connect(
         host=conn_dict["server"],
@@ -335,28 +482,28 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
     conn :                      Oracle connector.
     """
 
-    ## Start oracle client
+    # Start oracle client
     try:
         try:  # Windows
             print(
                 f"Starting oracle client on Windows -> {conn_dict['oracle_client_dir']}"
             )
-            # Start oracle client
+            ## Start oracle client
             oracledb.init_oracle_client(lib_dir=conn_dict["oracle_client_dir"])
         except Exception as e:  # Linux
             print(f"Error starting oracle client on Windows -> {type(e)} - {e}")
             print(
                 f"Starting oracle client on Linux -> {conn_dict['oracle_client_dir']}"
             )
-            # Set environment variable
+            ## Set environment variable
             os.environ["LD_LIBRARY_PATH"] = conn_dict["oracle_client_dir"]
-            # Start oracle client
+            ## Start oracle client
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
         print(f"Error starting oracle client -> {type(e)} - {e}")
         pass
 
-    ## Create connector
+    # Create connector
     conn = oracledb.connect(
         user=conn_dict["username"],
         password=conn_dict["password"],
@@ -381,19 +528,19 @@ def create_mysql_conn(conn_dict: dict, **kwargs):
     conn :                      Mysql connector.
     """
 
-    ## Set extra configuration for connection
+    # Set extra configuration for connection
 
-    # Driver
+    ## Driver
     if "driver" not in conn_dict.keys():
         conn_dict["driver"] = "{MySQL ODBC 8.0 Unicode Driver}"  # '{MySQL}'
-    # Port
+    ## Port
     if "port" not in conn_dict.keys():
         conn_dict["port"] = 3306
-    # Charset
+    ## Charset
     if "charset" not in conn_dict.keys():
         conn_dict["charset"] = "utf8mb4"
 
-    ## Create string for connection
+    # Create string for connection
 
     str_conn = (
         f'DRIVER={conn_dict["driver"]};'
@@ -404,7 +551,7 @@ def create_mysql_conn(conn_dict: dict, **kwargs):
         + f'PORT={conn_dict["port"]};'
         + f'CHARSET={conn_dict["charset"]}'
     )
-    ## Create connector
+    # Create connector
 
     conn = pyodbc.connect(str_conn, **kwargs)
 
@@ -425,14 +572,13 @@ def create_pyodbc_conn(conn_dict: dict, **kwargs):
     conn :                      Pyodbc connector.
     """
 
-    ## Set extra configuration for connection
+    # Set extra configuration for connection
 
-    # Driver
+    ## Driver
     if "driver" not in conn_dict.keys():
         conn_dict["driver"] = "{ODBC Driver 17 for SQL Server}"  # '{SQL Server}'
 
-    ## Create string for connection
-
+    # Create string for connection
     str_conn = (
         f'DRIVER={conn_dict["driver"]};'
         + f'SERVER={conn_dict["server"]};'
@@ -440,8 +586,7 @@ def create_pyodbc_conn(conn_dict: dict, **kwargs):
         + f'UID={conn_dict["username"]};'
         + f'PWD={conn_dict["password"]}'
     )
-
-    ## Create connector
+    # Create connector
     conn = pyodbc.connect(str_conn, **kwargs)
 
     return conn
@@ -463,7 +608,7 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
     response_rows_affected :    Integer with number of rows affected.
     """
 
-    ## Set mode of connection
+    # Set mode of connection
 
     if mode == "pyodbc":
         print("Connecting to database...")
@@ -490,17 +635,35 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
         sql_conn = create_bigquery_conn(conn_dict, **kwargs)
 
     print("Executing statement...")
-    ## Execute statment
-
+    # Execute statment
     with sql_conn:
-        # Initialize cursor
-        cursor = sql_conn.cursor()
-        # Execute statement
-        cursor.execute(sql_stmt)
-        # Get number of rows affected
-        response_rows_affected = cursor.rowcount
-        # Commit changes
-        sql_conn.commit()
+        try:
+            ## Initialize cursor
+            cursor = sql_conn.cursor()
+            ## Execute statement
+            cursor.execute(sql_stmt)
+            ## Get number of rows affected
+            response_rows_affected = cursor.rowcount
+            ## Commit changes
+            sql_conn.commit()
+        except Exception as e:
+            ## Show error
+            print(
+                f"Error executing statement -> {type(e)} - {e}. Retrying without cursor..."
+            )
+            ## Try without cursor
+            try:
+                ### Execute statement
+                sql_conn.execute(sql_stmt)
+                ### Get number of rows affected
+                response_rows_affected = 1
+                ### Commit changes
+                sql_conn.commit()
+            except Exception as e:
+                ### Show error
+                print(f"Error executing statement -> {type(e)} - {e}. Aborting...")
+                ### Set number of rows affected
+                response_rows_affected = 0
 
     return response_rows_affected  # Response with number of rows affected
 
@@ -523,7 +686,7 @@ def to_sql_executemany(data, conn_dict, schema, table_name, mode, **kwargs):
     response_rows_affected :    Integer with number of rows inserted (should be equal to len(data)).
     """
 
-    ## Set mode of connection
+    # Set mode of connection
 
     if mode == "pyodbc":
         print("Connecting to database...")
@@ -554,21 +717,21 @@ def to_sql_executemany(data, conn_dict, schema, table_name, mode, **kwargs):
         sql_conn = create_mysql_conn(conn_dict, **kwargs)
 
     print("Executing statement...")
-    ## Execute statment
+    # Execute statment
 
-    # Create sql statement
+    ## Create sql statement
     sql_stmt = f"INSERT INTO {schema}.{table_name} ({','.join([col for col in data.columns])}) VALUES ({','.join([f':{col}' for col in data.columns])})"
-    # Format data into sequence
+    ## Format data into sequence
     data = [tuple(x) for x in data.to_numpy()]
-    # Make query
+    ## Make query
     with sql_conn:
-        # Initialize cursor
+        ### Initialize cursor
         cursor = sql_conn.cursor()
-        # Execute statement
+        ### Execute statement
         cursor.executemany(sql_stmt, data)
-        # Get number of rows affected
+        ### Get number of rows affected
         response_rows_affected = cursor.rowcount
-        # Commit changes
+        ### Commit changes
         sql_conn.commit()
 
     return response_rows_affected  # Response with number of rows inserted (should be equal to len(data))
@@ -658,7 +821,7 @@ def parallel_to_sql(
     """
 
     print("Connecting to database...")
-    ## Create engine connection
+    # Create engine connection
 
     if mode.lower() == "pyodbc":
         engine = create_sqlalchemy_engine(
@@ -705,11 +868,11 @@ def parallel_to_sql(
         )
 
     print("Uploading data...")
-    ## Upload data
+    # Upload data
 
-    # Initialize response rows affected variable
+    ## Initialize response rows affected variable
     tot_response_rows_affected = 0
-    # Upload data to database
+    ## Upload data to database
     if method.lower() == "multi":
         try:
             print("Trying to upload data with 'multi' method...")
@@ -801,7 +964,7 @@ def parallel_to_sql(
         print("Wrong selected method. Aborting...")
         response_rows_affected = 0
 
-    # Update response rows affected
+    ## Update response rows affected
     tot_response_rows_affected += response_rows_affected
 
     return tot_response_rows_affected
@@ -838,14 +1001,14 @@ def sql_read_data(
     df :                  Dataframe with query results.
     """
 
-    ## Read data
+    # Read data
 
     t_i = dt.datetime.now()
     n_try = 0
     succeeded = False
     while n_try < max_n_try and not succeeded:
         try:
-            # Create engine
+            ### Create engine
             if mode == "pyodbc":
                 engine_obj = create_sqlalchemy_engine(
                     conn_dict,
@@ -888,20 +1051,20 @@ def sql_read_data(
                     connect_args=connect_args,
                     **kwargs,
                 )
-            # Read sql statement
+            ### Read sql statement
             df = pd.read_sql(sql_stmt, engine_obj)
-            # Dispose connections
+            ### Dispose connections
             engine_obj.dispose()
-            # Change status
+            ### Change status
             succeeded = True
         except Exception as e:
-            # Initialize empty dataframe
+            ### Initialize empty dataframe
             df = pd.DataFrame()
-            # Set log file name
+            ### Set log file name
             log_file_name = "read_data"
-            # Create logs folder
+            ### Create logs folder
             os.makedirs(log_file_path, exist_ok=True)
-            # Create logs
+            ### Create logs
             mk_err_logs(
                 log_file_path,
                 log_file_name,
@@ -922,20 +1085,20 @@ def sql_read_data(
                 ),
                 mode="detailed",
             )
-            # Change status
+            ### Change status
             succeeded = False
-        # Update number of tries
+        ## Update number of tries
         n_try += 1
     t_e = dt.datetime.now()
     print(f"Time elapsed in 'download' process {name} -> {df.shape} = {t_e - t_i}")
 
-    ## Create time execution logs
+    # Create time execution logs
 
-    # Set log file name
+    ## Set log file name
     log_file_name = "download_data_texec"
-    # Create logs folder
+    ## Create logs folder
     os.makedirs(log_file_path, exist_ok=True)
-    # Create logs
+    ## Create logs
     mk_texec_logs(
         log_file_path,
         log_file_name,
@@ -992,42 +1155,42 @@ def sql_upload_data(
     response_rows_affected : Integer with number of rows affected.
     """
 
-    ## Set number of jobs
+    # Set number of jobs
 
     if n_jobs == -1:
         n_jobs = multiprocessing.cpu_count()
 
-    ## Create schema if not exists (tables are automatically created by SQLAlchemy)
+    # Create schema if not exists (tables are automatically created by SQLAlchemy)
 
     try:
-        ### Execute command
+        ## Execute command
         response_rows_affected = sql_exec_stmt(
-            f"CREATE SCHEMA {schema};", conn_dict, mode=mode, **kwargs
+            DDL(f"CREATE SCHEMA IF NOT EXISTS {schema}"), conn_dict, mode=mode, **kwargs
         )
-        ### Show rows affected
+        ## Show rows affected
         print(f"Schema {schema} created -> {response_rows_affected}")
     except Exception as e:
         print(f"Error creating schema {schema} -> {type(e)} - {e}")
 
-    ## Upload data
+    # Upload data
 
     t_i = dt.datetime.now()
     n_try = 0
     succeeded = False
     while n_try < max_n_try and not succeeded:
         try:
-            # Show shape of dataframe
+            ### Show shape of dataframe
             print(f"Shape of query dataframe -> {name} = {df.shape}")
-            # Upload dataframe in parallel
+            ### Upload dataframe in parallel
             if not df.empty:
-                # Parallelize only if dataframe is large enough (avoid locking up the system for small dataframes)
+                #### Parallelize only if dataframe is large enough (avoid locking up the system for small dataframes)
                 if df.shape[0] / chunksize >= n_jobs:
                     print("Uploading chunked data in parallel...")
-                    # Split dataframe in smaller chunks
+                    ##### Split dataframe in smaller chunks
                     df_split_iter = [
                         x for x in np.array_split(df, n_jobs) if not x.empty
                     ]
-                    # Create iterators
+                    ##### Create iterators
                     table_name_iter = [table_name for x in df_split_iter]
                     schema_iter = [schema for x in df_split_iter]
                     mode_iter = [mode for x in df_split_iter]
@@ -1039,7 +1202,7 @@ def sql_upload_data(
                     dtypes_iter = [dtypes_dict for x in df_split_iter]
                     spark_mode_iter = [spark_mode for x in df_split_iter]
                     kwargs_iter = [kwargs for x in df_split_iter]
-                    # Get results
+                    ##### Get results
                     parallel_results = parallel_execute(
                         parallel_to_sql,
                         df_split_iter,
@@ -1056,7 +1219,7 @@ def sql_upload_data(
                         kwargs_iter,
                     )
 
-                    # Concatenate results
+                    ##### Concatenate results
                     response_rows_affected = 0
                     for r in parallel_results:
                         response_rows_affected += r
@@ -1077,18 +1240,18 @@ def sql_upload_data(
                         **kwargs,
                     )
             else:
-                # Set response rows affected to 0
+                #### Set response rows affected to 0
                 response_rows_affected = 0
-            # Show rows affected
+            ### Show rows affected
             print(f"Affected number of rows -> {name} = {response_rows_affected}")
-            # Change status
+            ### Change status
             succeeded = True
         except Exception as e:
-            # Set log file name
+            ### Set log file name
             log_file_name = "upload_data"
-            # Create logs folder
+            ### Create logs folder
             os.makedirs(log_file_path, exist_ok=True)
-            # Create logs
+            ### Create logs
             mk_err_logs(
                 log_file_path,
                 log_file_name,
@@ -1109,22 +1272,22 @@ def sql_upload_data(
                 ),
                 mode="detailed",
             )
-            # Set response rows affected to 0
+            ### Set response rows affected to 0
             response_rows_affected = 0
-            # Change status
+            ### Change status
             succeeded = False
-        # Update number of tries
+        ## Update number of tries
         n_try += 1
     t_e = dt.datetime.now()
     print(f"Time elapsed in 'upload' process {name} -> {df.shape} = {t_e - t_i}")
 
-    ## Create time execution logs
+    # Create time execution logs
 
-    # Set log file name
+    ## Set log file name
     log_file_name = "upload_data_texec"
-    # Create logs folder
+    ## Create logs folder
     os.makedirs(log_file_path, exist_ok=True)
-    # Create logs
+    ## Create logs
     mk_texec_logs(
         log_file_path,
         log_file_name,
@@ -1177,29 +1340,29 @@ def sql_copy_data(
     response_rows_affected:     Integer with number of rows affected.
     """
 
-    ## Copy data
+    # Copy data
 
     t_i = dt.datetime.now()
     n_try = 0
     succeeded = False
     while n_try < max_n_try and not succeeded:
         try:
-            # Create sql statement
+            ### Create sql statement
             sql_stmt = f"COPY {schema}.{table_name} FROM '{s3_file_path}' ACCESS_KEY_ID '{access_key}' SECRET_ACCESS_KEY '{secret_access_key}' REGION '{region}' DELIMITER '{delimiter}' IGNOREHEADER {header_row} EMPTYASNULL FORMAT AS {type_format.upper()};"
-            # Execute copy command
+            ### Execute copy command
             response_rows_affected = sql_exec_stmt(
                 sql_stmt, conn_dict, mode="redshift", **kwargs
             )
-            # Show rows affected
+            ### Show rows affected
             print(f"Affected number of rows -> {name} = {response_rows_affected}")
             # Change status
             succeeded = True
         except Exception as e:
-            # Set log file name
+            ### Set log file name
             log_file_name = "copy_data"
-            # Create logs folder
+            ### Create logs folder
             os.makedirs(log_file_path, exist_ok=True)
-            # Create logs
+            ### Create logs
             mk_err_logs(
                 log_file_path,
                 log_file_name,
@@ -1220,22 +1383,22 @@ def sql_copy_data(
                 ),
                 mode="detailed",
             )
-            # Set response rows affected to 0
+            ### Set response rows affected to 0
             response_rows_affected = 0
-            # Change status
+            ### Change status
             succeeded = False
-        # Update number of tries
+        ## Update number of tries
         n_try += 1
     t_e = dt.datetime.now()
     print(f"Time elapsed in 'copy' process {name} = {t_e - t_i}")
 
-    ## Create time execution logs
+    # Create time execution logs
 
-    # Set log file name
+    ## Set log file name
     log_file_name = "copy_data_texec"
-    # Create logs folder
+    ## Create logs folder
     os.makedirs(log_file_path, exist_ok=True)
-    # Create logs
+    ## Create logs
     mk_texec_logs(
         log_file_path,
         log_file_name,
