@@ -193,7 +193,7 @@ class ExtractDeleteAndLoad(object):
                 print(f"     Delete query: {stmt}")
                 # Execute delete statement
                 try:
-                    sql_exec_stmt(
+                    rows_affected, output = sql_exec_stmt(
                         stmt,
                         conn_dict,
                         mode=conn_type,
@@ -269,7 +269,7 @@ class ExtractDeleteAndLoad(object):
                 print(f"     Truncate query: {stmt}")
                 # Execute truncate statement
                 try:
-                    sql_exec_stmt(
+                    rows_affected, output = sql_exec_stmt(
                         stmt,
                         conn_dict,
                         mode=(

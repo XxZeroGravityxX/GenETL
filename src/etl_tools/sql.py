@@ -592,82 +592,6 @@ def create_pyodbc_conn(conn_dict: dict, **kwargs):
     return conn
 
 
-def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
-    """
-    Function to execute sql statements.
-
-    Parameters:
-
-    sql_stmt :                  String with sql statement to execute.
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    mode :                      String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb' and 'bigquery'.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    response_rows_affected :    Integer with number of rows affected.
-    """
-
-    # Set mode of connection
-
-    if mode == "pyodbc":
-        print("Connecting to database...")
-        ## Make connection
-        sql_conn = create_pyodbc_conn(conn_dict, **kwargs)
-
-    elif mode == "redshift":
-        print("Connecting to database...")
-        ## Make connection
-        sql_conn = create_redshift_conn(conn_dict, **kwargs)
-
-    elif mode == "sqlalchemy":
-        print("Connecting to database...")
-        ## Make connection
-        sql_conn = create_sqlalchemy_conn(conn_dict, **kwargs)
-
-    elif mode == "oracledb":
-        print("Connecting to database...")
-        ## Make connection
-        sql_conn = create_oracle_conn(conn_dict, **kwargs)
-    elif mode == "bigquery":
-        print("Connecting to database...")
-        ## Make connection
-        sql_conn = create_bigquery_conn(conn_dict, **kwargs)
-
-    print("Executing statement...")
-    # Execute statment
-    with sql_conn:
-        try:
-            ## Initialize cursor
-            cursor = sql_conn.cursor()
-            ## Execute statement
-            cursor.execute(sql_stmt)
-            ## Get number of rows affected
-            response_rows_affected = cursor.rowcount
-            ## Commit changes
-            sql_conn.commit()
-        except Exception as e:
-            ## Show error
-            print(
-                f"Error executing statement -> {type(e)} - {e}. Retrying without cursor..."
-            )
-            ## Try without cursor
-            try:
-                ### Execute statement
-                sql_conn.execute(sql_stmt)
-                ### Get number of rows affected
-                response_rows_affected = 1
-                ### Commit changes
-                sql_conn.commit()
-            except Exception as e:
-                ### Show error
-                print(f"Error executing statement -> {type(e)} - {e}. Aborting...")
-                ### Set number of rows affected
-                response_rows_affected = 0
-
-    return response_rows_affected  # Response with number of rows affected
-
-
 def to_sql_executemany(data, conn_dict, schema, table_name, mode, **kwargs):
     """
     Function to upload data to database table with sqlalchemy in parallel.
@@ -870,9 +794,6 @@ def parallel_to_sql(
     print("Uploading data...")
     # Upload data
 
-    ## Initialize response rows affected variable
-    tot_response_rows_affected = 0
-    ## Upload data to database
     if method.lower() == "multi":
         try:
             print("Trying to upload data with 'multi' method...")
@@ -964,10 +885,90 @@ def parallel_to_sql(
         print("Wrong selected method. Aborting...")
         response_rows_affected = 0
 
-    ## Update response rows affected
-    tot_response_rows_affected += response_rows_affected
+    return response_rows_affected
 
-    return tot_response_rows_affected
+
+def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
+    """
+    Function to execute sql statements.
+
+    Parameters:
+
+    sql_stmt :                  String with sql statement to execute.
+    conn_dict :                 Dictionary with server, database, uid and pwd information.
+    mode :                      String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb' and 'bigquery'.
+    **kwargs :                  Extra arguments for connection.
+
+    Output:
+
+    response_rows_affected :    Integer with number of rows affected.
+    response_output :           Output/result from the executed statement (if available), None otherwise.
+    """
+
+    # Set mode of connection
+
+    if mode == "pyodbc":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_pyodbc_conn(conn_dict, **kwargs)
+
+    elif mode == "redshift":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_redshift_conn(conn_dict, **kwargs)
+
+    elif mode == "sqlalchemy":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_sqlalchemy_conn(conn_dict, **kwargs)
+
+    elif mode == "oracledb":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_oracle_conn(conn_dict, **kwargs)
+    elif mode == "bigquery":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_bigquery_conn(conn_dict, **kwargs)
+
+    print("Executing statement...")
+    # Execute statment
+    response_output = None
+    with sql_conn:
+        try:
+            ## Initialize cursor
+            cursor = sql_conn.cursor()
+            ## Execute statement
+            cursor.execute(sql_stmt)
+            ## Get number of rows affected
+            response_rows_affected = cursor.rowcount
+            ## Try to fetch results
+            try:
+                response_output = cursor.fetchall()
+            except:
+                response_output = None
+            ## Commit changes
+            sql_conn.commit()
+        except Exception as e:
+            ## Show error
+            print(
+                f"Error executing statement -> {type(e)} - {e}. Retrying without cursor..."
+            )
+            ## Try without cursor
+            try:
+                ### Execute statement
+                sql_conn.execute(sql_stmt)
+                ### Get number of rows affected
+                response_rows_affected = 1
+                ### Commit changes
+                sql_conn.commit()
+            except Exception as e:
+                ### Show error
+                print(f"Error executing statement -> {type(e)} - {e}. Aborting...")
+                ### Set number of rows affected
+                response_rows_affected = 0
+
+    return response_rows_affected, response_output  # Response with number of rows affected and output
 
 
 def sql_read_data(
@@ -1164,7 +1165,7 @@ def sql_upload_data(
 
     try:
         ## Execute command
-        response_rows_affected = sql_exec_stmt(
+        response_rows_affected, response_output = sql_exec_stmt(
             DDL(f"CREATE SCHEMA IF NOT EXISTS {schema}"), conn_dict, mode=mode, **kwargs
         )
         ## Show rows affected
@@ -1350,7 +1351,7 @@ def sql_copy_data(
             ### Create sql statement
             sql_stmt = f"COPY {schema}.{table_name} FROM '{s3_file_path}' ACCESS_KEY_ID '{access_key}' SECRET_ACCESS_KEY '{secret_access_key}' REGION '{region}' DELIMITER '{delimiter}' IGNOREHEADER {header_row} EMPTYASNULL FORMAT AS {type_format.upper()};"
             ### Execute copy command
-            response_rows_affected = sql_exec_stmt(
+            response_rows_affected, response_output = sql_exec_stmt(
                 sql_stmt, conn_dict, mode="redshift", **kwargs
             )
             ### Show rows affected
