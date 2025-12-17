@@ -934,6 +934,7 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
     print("Executing statement...")
     # Execute statment
     response_output = None
+    response_rows_affected = 0
     with sql_conn:
         try:
             ## Initialize cursor
@@ -945,7 +946,9 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
             ## Try to fetch results
             try:
                 response_output = cursor.fetchall()
-            except:
+            except Exception as e:
+                ## Log the exception for debugging
+                print(f"Info: Could not fetch results - {type(e)}: {e}")
                 response_output = None
             ## Commit changes
             sql_conn.commit()
@@ -957,9 +960,15 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
             ## Try without cursor
             try:
                 ### Execute statement
-                sql_conn.execute(sql_stmt)
+                result = sql_conn.execute(sql_stmt)
                 ### Get number of rows affected
                 response_rows_affected = 1
+                ### Try to fetch results if available
+                try:
+                    response_output = result.fetchall()
+                except Exception as e:
+                    print(f"Info: Could not fetch results - {type(e)}: {e}")
+                    response_output = None
                 ### Commit changes
                 sql_conn.commit()
             except Exception as e:
@@ -968,7 +977,10 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
                 ### Set number of rows affected
                 response_rows_affected = 0
 
-    return response_rows_affected, response_output  # Response with number of rows affected and output
+    return (
+        response_rows_affected,
+        response_output,
+    )  # Response with number of rows affected and output
 
 
 def sql_read_data(
