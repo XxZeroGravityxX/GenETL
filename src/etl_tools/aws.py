@@ -401,3 +401,55 @@ def dynamodb_read_data(
         data.extend(scan_response["Items"])
 
     return data
+
+
+def dynamodb_upload_data(
+    data,
+    table_name,
+    aws_access_key_id,
+    aws_secret_access_key,
+    region_name,
+    **kwargs,
+):
+    """
+    Function to upload data to DynamoDB.
+
+    Parameters:
+
+    data:                       pd.DataFrame or list. Data to upload.
+    table_name:                 str. Name of the DynamoDB table.
+    aws_access_key_id:          str. AWS access key ID.
+    aws_secret_access_key:      str. AWS secret access key.
+    region_name:                str. AWS region name.
+    **kwargs:                   Additional arguments for DynamoDB operations.
+    """
+
+    # Set resource
+    dynamodb = boto3.resource(
+        "dynamodb",
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name,
+    )
+    # Get table
+    table = dynamodb.Table(table_name)
+
+    # Convert DataFrame to list of dictionaries if needed
+    if isinstance(data, pd.DataFrame):
+        items = data.to_dict(orient="records")
+    else:
+        items = data if isinstance(data, list) else [data]
+
+    # Get batch size (default 25, maximum for DynamoDB)
+    batch_size = kwargs.get("batch_size", 25)
+
+    # Upload data in batches
+    with table.batch_writer(
+        batch_size=batch_size,
+        overwrite_by_pkeys=kwargs.get("overwrite_by_pkeys", ["id"]),
+    ) as batch:
+        for item in items:
+            batch.put_item(Item=item)
+
+    pass
+
