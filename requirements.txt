@@ -13,10 +13,10 @@ pyodbc==5.1.0
 psycopg2==2.9.9
 pyspark==3.5.1
 redshift_connector==2.1.7
-Requests==2.32.3
+requests>=2.32.4
 SQLAlchemy==2.0.31
 google-cloud-aiplatform==1.63.0
 google-cloud-storage==2.19.0
-google_cloud_bigquery==3.25.0
+google-cloud-bigquery==3.25.0
 google-cloud-bigquery-storage==2.25.0
 sqlalchemy-bigquery==1.11.0
