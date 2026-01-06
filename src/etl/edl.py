@@ -61,42 +61,42 @@ class ExtractDeleteAndLoad(object):
         locals_dict :           dict. Local variables dictionary.
         """
 
-        ## Set class parameters
+        # Set class parameters
 
-        # Set configuration parameters (lowercase keys)
+        ## Set configuration parameters (lowercase keys)
         self.connections_dict = {key.lower(): val for key, val in conn_dict.items()}
         self.configs_dict = {key.lower(): val for key, val in config_dict.items()}
         self.sqlalchemy_dtypes = {
             key.lower(): val for key, val in sqlalchemy_dict.items()
         }
-        # Set global variables
+        ## Set global variables
         for key, val in globals_dict.items():
-            # Set as global
+            ### Set as global
             globals()[key] = val
-        # Set local variables
+        ## Set local variables
         for key, val in locals_dict.items():
             locals()[key] = val
-        # Set processes names
+        ## Set processes names
         processes_list = ["download", "delete", "truncate", "upload"]
-        # Set connection parameters
+        ## Set connection parameters
         self.conn_info_dict = {key: {} for key in processes_list}
         self.conn_suff_dict = {key: {} for key in processes_list}
         self.conn_type_dict = {key: {} for key in processes_list}
-        # Iterate over processes
+        ## Iterate over processes
         for p_name in processes_list:
-            # Skip if process is not in configuration dictionary
+            ### Skip if process is not in configuration dictionary
             if f"{p_name}_connections_dict" not in self.configs_dict.keys():
                 continue
-            # Iterate over connections
+            ### Iterate over connections
             for key, val in self.configs_dict[f"{p_name}_connections_dict"].items():
-                # Get connection suffix
+                #### Get connection suffix
                 self.conn_suff_dict[p_name][key] = val.split("_")[-1]
-                # Get connection type
+                #### Get connection type
                 self.conn_type_dict[p_name][key] = val.split("_")[0]
-                # Get connection dictionary
+                #### Get connection dictionary
                 self.conn_info_dict[p_name][key] = self.connections_dict[val]
 
-        ## Assert class parameters
+        # Assert class parameters
         allowed_conn_types = {
             "pyodbc",
             "redshift",
@@ -121,7 +121,7 @@ class ExtractDeleteAndLoad(object):
         kwargs : dict. Keyword arguments to pass to the delete statement.
         """
 
-        # Check if delete configurations are set
+        ## Check if delete configurations are set
         if (
             ("delete" not in self.conn_suff_dict.keys())
             or ("delete" not in self.conn_type_dict.keys())
@@ -130,16 +130,16 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Delete configurations are not set! Please set them first."
             )
-        # Iterate over connections
+        ## Iterate over connections
         for key in self.configs_dict["delete_connections_dict"].keys():
             print(f"Deleting data for {key}...")
-            # Set extra variables as global variables
+            ### Set extra variables as global variables
             if "delete_extra_vars_dict" in self.configs_dict.keys():
                 if key in self.configs_dict["delete_extra_vars_dict"].keys():
                     if len(self.configs_dict["delete_extra_vars_dict"][key]) > 0:
-                        # Turn on variable evaluation
+                        #### Turn on variable evaluation
                         evaluate_vars = True
-                        # Evaluate extra variables
+                        #### Evaluate extra variables
                         for ex_key, ex_val in self.configs_dict[
                             "delete_extra_vars_dict"
                         ][key].items():
@@ -147,24 +147,24 @@ class ExtractDeleteAndLoad(object):
                                 eval(ex_val) if "eval(" in ex_val else ex_val
                             )
                     else:
-                        # Turn off variable evaluation
+                        #### Turn off variable evaluation
                         evaluate_vars = False
                 else:
-                    # Turn off variable evaluation
+                    #### Turn off variable evaluation
                     evaluate_vars = False
             else:
-                # Turn off variable evaluation
+                #### Turn off variable evaluation
                 evaluate_vars = False
-            # Get connection suffix
+            ### Get connection suffix
             conn_suff = self.conn_suff_dict["delete"][key]
-            # Get connection type
+            ### Get connection type
             conn_type = self.conn_type_dict["delete"][key]
-            # Get connection dictionary
+            ### Get connection dictionary
             conn_dict = self.conn_info_dict["delete"][key]
 
-            # Delete data
+            ### Delete data
 
-            ## Get delete statement
+            #### Get delete statement
             stmt = (
                 eval(self.configs_dict["delete_sql_stmts_dict"][key])
                 if (
@@ -174,7 +174,7 @@ class ExtractDeleteAndLoad(object):
                 else self.configs_dict["delete_sql_stmts_dict"][key]
             )
             print(f"     Delete query: {stmt}")
-            ## Execute delete statement
+            #### Execute delete statement
             try:
                 rows_affected, output = sql_exec_stmt(
                     stmt,
@@ -192,7 +192,7 @@ class ExtractDeleteAndLoad(object):
         Function to truncate data from the source.
         """
 
-        # Check if truncate configurations are set
+        ## Check if truncate configurations are set
         if (
             ("truncate" not in self.conn_suff_dict.keys())
             or ("truncate" not in self.conn_type_dict.keys())
@@ -201,16 +201,16 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Truncate configurations are not set! Please set them first."
             )
-        # Iterate over connections
+        ## Iterate over connections
         for key in self.configs_dict["truncate_connections_dict"].keys():
             print(f"Truncating data for {key}...")
-            # Set extra variables as global variables
+            ### Set extra variables as global variables
             if "truncate_extra_vars_dict" in self.configs_dict.keys():
                 if key in self.configs_dict["truncate_extra_vars_dict"].keys():
                     if len(self.configs_dict["truncate_extra_vars_dict"][key]) > 0:
-                        # Turn on variable evaluation
+                        #### Turn on variable evaluation
                         evaluate_vars = True
-                        # Evaluate extra variables
+                        #### Evaluate extra variables
                         for ex_key, ex_val in self.configs_dict[
                             "truncate_extra_vars_dict"
                         ][key].items():
@@ -218,24 +218,24 @@ class ExtractDeleteAndLoad(object):
                                 eval(ex_val) if "eval(" in ex_val else ex_val
                             )
                     else:
-                        # Turn off variable evaluation
+                        #### Turn off variable evaluation
                         evaluate_vars = False
                 else:
-                    # Turn off variable evaluation
+                    #### Turn off variable evaluation
                     evaluate_vars = False
             else:
-                # Turn off variable evaluation
+                #### Turn off variable evaluation
                 evaluate_vars = False
-            # Get connection suffix
+            ### Get connection suffix
             conn_suff = self.conn_suff_dict["truncate"][key]
-            # Get connection type
+            ### Get connection type
             conn_type = self.conn_type_dict["truncate"][key]
-            # Get connection dictionary
+            ### Get connection dictionary
             conn_dict = self.conn_info_dict["truncate"][key]
 
-            # Truncate data
+            ### Truncate data
 
-            ## Get truncate statement
+            #### Get truncate statement
             stmt = (
                 eval(self.configs_dict["truncate_sql_stmts_dict"][key])
                 if (
@@ -245,7 +245,7 @@ class ExtractDeleteAndLoad(object):
                 else self.configs_dict["truncate_sql_stmts_dict"][key]
             )
             print(f"     Truncate query: {stmt}")
-            ## Execute truncate statement
+            #### Execute truncate statement
             try:
                 rows_affected, output = sql_exec_stmt(
                     stmt,
@@ -263,7 +263,7 @@ class ExtractDeleteAndLoad(object):
         Function to read data from the source.
         """
 
-        # Check if download configurations are set
+        ## Check if download configurations are set
         if (
             ("download" not in self.conn_suff_dict.keys())
             or ("download" not in self.conn_type_dict.keys())
@@ -272,18 +272,18 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Download configurations are not set! Please set them first."
             )
-        # Initialize raw data
+        ## Initialize raw data
         self.raw_data = {}
-        # Iterate over connections
+        ## Iterate over connections
         for key in self.configs_dict["download_connections_dict"].keys():
             print(f"Downloading data for {key}...")
-            # Set extra variables as global variables
+            ### Set extra variables as global variables
             if "download_extra_vars_dict" in self.configs_dict.keys():
                 if key in self.configs_dict["download_extra_vars_dict"].keys():
                     if len(self.configs_dict["download_extra_vars_dict"][key]) > 0:
-                        # Turn on variable evaluation
+                        #### Turn on variable evaluation
                         evaluate_vars = True
-                        # Evaluate extra variables
+                        #### Evaluate extra variables
                         for ex_key, ex_val in self.configs_dict[
                             "download_extra_vars_dict"
                         ][key].items():
@@ -291,24 +291,24 @@ class ExtractDeleteAndLoad(object):
                                 eval(ex_val) if "eval(" in ex_val else ex_val
                             )
                     else:
-                        # Turn off variable evaluation
+                        #### Turn off variable evaluation
                         evaluate_vars = False
                 else:
-                    # Turn off variable evaluation
+                    #### Turn off variable evaluation
                     evaluate_vars = False
             else:
-                # Turn off variable evaluation
+                #### Turn off variable evaluation
                 evaluate_vars = False
-            # Get connection suffix
+            ### Get connection suffix
             conn_suff = self.conn_suff_dict["download"][key]
-            # Get connection type
+            ### Get connection type
             conn_type = self.conn_type_dict["download"][key]
-            # Get connection dictionary
+            ### Get connection dictionary
             conn_dict = self.conn_info_dict["download"][key]
 
-            # Read data
+            ### Read data
 
-            ## Get download statement
+            #### Get download statement
             stmt = (
                 eval(self.configs_dict["download_sql_stmts_dict"][key])
                 if (
@@ -318,7 +318,7 @@ class ExtractDeleteAndLoad(object):
                 else self.configs_dict["download_sql_stmts_dict"][key]
             )
             print(f"     Download query: {stmt}")
-            ## Download data
+            #### Download data
             data = sql_read_data(
                 stmt,
                 conn_dict,
@@ -382,10 +382,10 @@ class ExtractDeleteAndLoad(object):
                     )
                 },
             )
-            ## Add data to raw data dictionary
+            #### Add data to raw data dictionary
             self.raw_data[key] = data.copy()
 
-        # Free memory
+        ## Free memory
         del data
 
         pass
@@ -399,7 +399,7 @@ class ExtractDeleteAndLoad(object):
         data_to_upload : list. List with data to upload.
         """
 
-        # Check if upload configurations are set
+        ## Check if upload configurations are set
         if (
             ("upload" not in self.conn_suff_dict.keys())
             or ("upload" not in self.conn_type_dict.keys())
@@ -408,26 +408,26 @@ class ExtractDeleteAndLoad(object):
             raise ValueError(
                 "Upload configurations are not set! Please set them first."
             )
-        # Iterate over connections
+        ## Iterate over connections
         for key in self.configs_dict["upload_connections_dict"].keys():
             print(f"Uploading data for {key}...")
-            # Set data to upload
+            ### Set data to upload
             upload_data = data_to_upload[key]
-            # Get connection suffix
+            ### Get connection suffix
             conn_suff = self.conn_suff_dict["upload"][key]
-            # Get connection type
+            ### Get connection type
             conn_type = self.conn_type_dict["upload"][key]
-            # Get connection dictionary
+            ### Get connection dictionary
             conn_dict = self.conn_info_dict["upload"][key]
 
-            # Upload data
+            ### Upload data
 
             print(
                 f"     {conn_type.capitalize()} table: {self.configs_dict['upload_tables_dict'][key]}"
             )
-            ## Define column names and data types
+            #### Define column names and data types
             col_dict = self.configs_dict["upload_python_to_sql_dtypes_dict"][key]
-            ## Define dictionary with data types
+            #### Define dictionary with data types
             dtypes_dict = {
                 col: (
                     eval(
@@ -438,9 +438,9 @@ class ExtractDeleteAndLoad(object):
                 )
                 for col, col_dtype in col_dict.items()
             }
-            ## Use order defined in data types dictionary
+            #### Use order defined in data types dictionary
             upload_data = upload_data[list(col_dict.keys())]
-            ## Upload data to database
+            #### Upload data to database
             sql_upload_data(
                 upload_data,
                 self.configs_dict["upload_schemas_dict"][key],

@@ -8,6 +8,11 @@ import boto3
 import datetime as dt
 
 
+# ============================================================================
+# S3 Functions
+# ============================================================================
+
+
 def s3_list_objects(
     s3_bucket_name,
     s3_path,
@@ -25,28 +30,28 @@ def s3_list_objects(
     region_name:                    str. Name of the AWS region to use.
     """
 
-    # Create S3 session
+    ## Create S3 session
     my_session = boto3.Session(
         region_name=region_name,
         aws_access_key_id=aws_access_key,
         aws_secret_access_key=aws_secret_access_key,
     )
-    # Set up S3 resource
+    ## Set up S3 resource
     s3 = my_session.client("s3")
-    # Get objects list
+    ## Get objects list
     objects_list = [
         obj_dict["Key"]
         for obj_dict in s3.list_objects_v2(Bucket=s3_bucket_name, Prefix=s3_path)[
             "Contents"
         ]
     ]
-    # Check if limit of 1000 objects was reached
+    ## Check if limit of 1000 objects was reached
     if len(objects_list) == 1000:
-        # Get paginator
+        ### Get paginator
         paginator = s3.get_paginator("list_objects_v2")
-        # Get pages
+        ### Get pages
         pages = paginator.paginate(Bucket=s3_bucket_name, Prefix=s3_path)
-        # Iterate over pages
+        ### Iterate over pages
         objects_list = np.hstack(
             [[obj_dict["Key"] for obj_dict in page["Contents"]] for page in pages]
         )
@@ -71,15 +76,15 @@ def s3_get_object(
     region_name:                    str. Name of the AWS region to use.
     """
 
-    # Create S3 session
+    ## Create S3 session
     my_session = boto3.Session(
         region_name=region_name,
         aws_access_key_id=aws_access_key,
         aws_secret_access_key=aws_secret_access_key,
     )
-    # Set up S3 resource
+    ## Set up S3 resource
     s3 = my_session.client("s3")
-    # Set up S3 object
+    ## Set up S3 object
     content_object = s3.get_object(Bucket=s3_bucket_name, Key=s3_path)
 
     return content_object
@@ -104,15 +109,15 @@ def s3_put_object(
     region_name:                    str. Name of the AWS region to use.
     """
 
-    # Create S3 session
+    ## Create S3 session
     my_session = boto3.Session(
         region_name=region_name,
         aws_access_key_id=aws_access_key,
         aws_secret_access_key=aws_secret_access_key,
     )
-    # Set up S3 resource
+    ## Set up S3 resource
     s3 = my_session.client("s3")
-    # Set up S3 object
+    ## Set up S3 object
     s3.put_object(Body=s3_body_content, Bucket=s3_bucket_name, Key=s3_path)
 
     pass
@@ -148,10 +153,10 @@ def s3_read_file(
         region_name=region_name,
     )
     if file_type == "csv":
-        # Get and decode content
+        ### Get and decode content
         file_content = content_object.get("Body")
     elif file_type == "plain":
-        # Get and decode content
+        ### Get and decode content
         file_content = content_object.get("Body").read().decode(encoding)
 
     return file_content
@@ -185,7 +190,7 @@ def s3_read_json(
         encoding=encoding,
         file_type="plain",
     )
-    # Read json
+    ## Read json
     json_content = json.loads(file_content)
 
     return json_content
@@ -213,7 +218,7 @@ def s3_write_json(
 
     # Set and encode data
     s3_body_content = bytes(json.dumps(json_data).encode(encoding))
-    # Upload content to S3
+    ## Upload content to S3
     s3_put_object(
         s3_body_content,
         s3_bucket_name,
@@ -255,7 +260,7 @@ def s3_read_csv(
         encoding="utf-8",
         file_type="csv",
     )
-    # Read csv
+    ## Read csv
     csv_content = pd.read_csv(file_content, **kwargs)
 
     return csv_content
@@ -282,7 +287,7 @@ def s3_write_parquet(
 
     # Set and encode data
     s3_body_content = data.to_parquet()
-    # Upload content to S3
+    ## Upload content to S3
     s3_put_object(
         s3_body_content,
         s3_bucket_name,
@@ -322,7 +327,7 @@ def s3_read_pkl(
         .get("Body")
         .read()
     )
-    # Load threshold for center
+    ## Load threshold for center
     pickle_object = pickle.loads(pkl_file)
 
     return pickle_object
@@ -357,7 +362,7 @@ def s3_upload_csv(
         aws_access_key_id=aws_access_key,
         aws_secret_access_key=aws_secret_access_key,
     )
-    # Upload data to S3 bucket
+    ## Upload data to S3 bucket
     aws.s3.to_csv(
         data,
         path=s3_file_path,
@@ -368,6 +373,11 @@ def s3_upload_csv(
     )
 
     pass
+
+
+# ============================================================================
+# DynamoDB Functions
+# ============================================================================
 
 
 def dynamodb_read_data(
@@ -384,20 +394,20 @@ def dynamodb_read_data(
         aws_secret_access_key=aws_secret_access_key,
         region_name=region_name,
     )
-    # Evaluate keyword arguments
+    ## Evaluate keyword arguments
     kwargs_eval = {key: eval(val) for key, val in kwargs.items()}
-    # Get table
+    ## Get table
     table = dynamodb.Table(table_name)
-    # Scan table
+    ## Scan table
     scan_response = table.scan(**kwargs_eval)
-    # Get data from table
+    ## Get data from table
     data = scan_response["Items"]
-    while "LastEvaluatedKey" in scan_response:  # Iterate over each scan response
-        # Scan table
+    while "LastEvaluatedKey" in scan_response:  ### Iterate over each scan response
+        ### Scan table
         scan_response = table.scan(
             ExclusiveStartKey=scan_response["LastEvaluatedKey"], **kwargs_eval
         )
-        # Add data
+        ### Add data
         data.extend(scan_response["Items"])
 
     return data
@@ -431,25 +441,25 @@ def dynamodb_upload_data(
         aws_secret_access_key=aws_secret_access_key,
         region_name=region_name,
     )
-    # Get table
+    ## Get table
     table = dynamodb.Table(table_name)
 
-    # Convert DataFrame to list of dictionaries if needed
+    ## Convert DataFrame to list of dictionaries if needed
     if isinstance(data, pd.DataFrame):
         items = data.to_dict(orient="records")
     else:
         items = data if isinstance(data, list) else [data]
 
-    # Get batch size (default 25, maximum for DynamoDB)
+    ## Get batch size (default 25, maximum for DynamoDB)
     batch_size = kwargs.get("batch_size", 25)
 
-    # Upload data in batches
+    ## Upload data in batches
     with table.batch_writer(
         batch_size=batch_size,
         overwrite_by_pkeys=kwargs.get("overwrite_by_pkeys", ["id"]),
     ) as batch:
+        ### Upload each item
         for item in items:
             batch.put_item(Item=item)
 
     pass
-

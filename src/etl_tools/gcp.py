@@ -87,21 +87,21 @@ def gcs_upload_file(
     encoding:           str. Encoding to use. Default 'utf-8'.
     **kwargs:           Additional arguments (sep, index for CSV; orient for JSON; etc.).
     """
-    # Parse GCS path
+    ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
 
-    # Infer file format if not provided
+    ## Infer file format if not provided
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
 
-    # Create client if not provided
+    ## Create client if not provided
     if client is None:
         client = storage.Client()
 
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
 
-    # Convert data based on format
+    ## Convert data based on format
     if file_format == "csv":
         csv_buffer = BytesIO()
         sep = kwargs.pop("sep", ",")
@@ -138,7 +138,7 @@ def gcs_upload_file(
             f"Unsupported file format: {file_format}. Supported formats: csv, json, parquet, xlsx."
         )
 
-    # Upload to GCS
+    ## Upload to GCS
     content_type = _get_content_type(file_format)
     blob.upload_from_string(content, content_type=content_type)
 
@@ -163,27 +163,27 @@ def gcs_download_file(
     Output:
     data:               pd.DataFrame or dict or bytes. Downloaded data.
     """
-    # Parse GCS path
+    ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
 
-    # Infer file format if not provided
+    ## Infer file format if not provided
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
 
-    # Create client if not provided
+    ## Create client if not provided
     if client is None:
         client = storage.Client()
 
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
 
-    # Download from GCS
+    ## Download from GCS
     file_data = blob.download_as_bytes()
 
     if return_bytes:
         return file_data
 
-    # Parse data based on format
+    ## Parse data based on format
     if file_format == "csv":
         csv_buffer = BytesIO(file_data)
         return pd.read_csv(csv_buffer, **kwargs)
@@ -221,21 +221,23 @@ def gcs_delete_files(
     Output:
     deleted_count:      int. Number of files deleted.
     """
-    # Parse GCS path
+    ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_path)
 
-    # Create client if not provided
+    ## Create client if not provided
     if client is None:
         client = storage.Client()
 
     bucket = client.bucket(bucket_name)
 
-    # Determine the prefix to list
+    ## Determine the prefix to list
     list_prefix = blob_path
     if prefix_match:
-        list_prefix = f"{blob_path.rstrip('/')}/{prefix_match}" if blob_path else prefix_match
+        list_prefix = (
+            f"{blob_path.rstrip('/')}/{prefix_match}" if blob_path else prefix_match
+        )
 
-    # List and delete all blobs matching the prefix
+    ## List and delete all blobs matching the prefix
     blobs = bucket.list_blobs(prefix=list_prefix)
     deleted_count = 0
 
@@ -280,20 +282,31 @@ def bigquery_to_gcs(
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    # Create extract job config
+    ## Create extract job config
     extract_config = bigquery.ExtractJobConfig()
-    extract_config.source_format = bigquery.SourceFormat.CSV if file_format == "csv" else \
-                                   bigquery.SourceFormat.JSON if file_format == "json" else \
-                                   bigquery.SourceFormat.PARQUET if file_format == "parquet" else \
-                                   bigquery.SourceFormat.AVRO
+    extract_config.source_format = (
+        bigquery.SourceFormat.CSV
+        if file_format == "csv"
+        else (
+            bigquery.SourceFormat.JSON
+            if file_format == "json"
+            else (
+                bigquery.SourceFormat.PARQUET
+                if file_format == "parquet"
+                else bigquery.SourceFormat.AVRO
+            )
+        )
+    )
 
-    # Apply additional kwargs to extract config
+    ## Apply additional kwargs to extract config
     for key, value in kwargs.items():
         if hasattr(extract_config, key):
             setattr(extract_config, key, value)
 
-    # Create and run extract job
-    extract_job = bq_client.extract_table(table_id, gcs_file_path, job_config=extract_config)
+    ## Create and run extract job
+    extract_job = bq_client.extract_table(
+        table_id, gcs_file_path, job_config=extract_config
+    )
     extract_job.result()
 
     return extract_job
@@ -333,22 +346,33 @@ def gcs_to_bigquery(
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    # Create load job config
+    ## Create load job config
     load_config = bigquery.LoadJobConfig()
-    load_config.source_format = bigquery.SourceFormat.CSV if file_format == "csv" else \
-                                bigquery.SourceFormat.JSON if file_format == "json" else \
-                                bigquery.SourceFormat.PARQUET if file_format == "parquet" else \
-                                bigquery.SourceFormat.AVRO
+    load_config.source_format = (
+        bigquery.SourceFormat.CSV
+        if file_format == "csv"
+        else (
+            bigquery.SourceFormat.JSON
+            if file_format == "json"
+            else (
+                bigquery.SourceFormat.PARQUET
+                if file_format == "parquet"
+                else bigquery.SourceFormat.AVRO
+            )
+        )
+    )
 
     load_config.write_disposition = write_disposition
 
-    # Apply additional kwargs to load config
+    ## Apply additional kwargs to load config
     for key, value in kwargs.items():
         if hasattr(load_config, key):
             setattr(load_config, key, value)
 
     # Create and run load job
-    load_job = bq_client.load_table_from_uri(gcs_file_path, table_id, job_config=load_config)
+    load_job = bq_client.load_table_from_uri(
+        gcs_file_path, table_id, job_config=load_config
+    )
     load_job.result()
 
     return load_job
@@ -385,14 +409,14 @@ def cloud_sql_to_gcs(
     Output:
     operation:          dict. The operation response containing operation details.
     """
-    # Parse GCS path
+    ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
     gcs_uri = f"gs://{bucket_name}/{blob_path}"
 
-    # Construct the service object for the Cloud SQL Admin API
-    service = discovery.build('sqladmin', 'v1beta4')
+    ## Construct the service object for the Cloud SQL Admin API
+    service = discovery.build("sqladmin", "v1beta4")
 
-    # Build export context
+    ## Build export context
     export_context = {
         "fileType": file_type,
         "uri": gcs_uri,
@@ -402,24 +426,24 @@ def cloud_sql_to_gcs(
 
     request_body = {"exportContext": export_context}
 
-    # Execute the export operation
+    ## Execute the export operation
     request = service.instances().export(
-        project=project_id,
-        instance=instance_id,
-        body=request_body
+        project=project_id, instance=instance_id, body=request_body
     )
     response = request.execute()
-    operation_id = response['name']
+    operation_id = response["name"]
 
     if not wait_for_completion:
         return response
 
-    # Monitor the operation status
+    ## Monitor the operation status
     while True:
-        op_request = service.operations().get(project=project_id, operation=operation_id)
+        op_request = service.operations().get(
+            project=project_id, operation=operation_id
+        )
         op_response = op_request.execute()
-        if op_response['status'] == 'DONE':
-            if 'error' in op_response:
+        if op_response["status"] == "DONE":
+            if "error" in op_response:
                 raise Exception(f"Export failed: {op_response['error']}")
             return op_response
         time.sleep(poll_interval)
@@ -451,14 +475,14 @@ def gcs_to_cloud_sql(
     Output:
     operation:          dict. The operation response containing operation details.
     """
-    # Parse GCS path
+    ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
     gcs_uri = f"gs://{bucket_name}/{blob_path}"
 
-    # Construct the service object for the Cloud SQL Admin API
-    service = discovery.build('sqladmin', 'v1beta4')
+    ## Construct the service object for the Cloud SQL Admin API
+    service = discovery.build("sqladmin", "v1beta4")
 
-    # Build import context
+    ## Build import context
     import_context = {
         "fileType": file_type,
         "uri": gcs_uri,
@@ -468,24 +492,24 @@ def gcs_to_cloud_sql(
 
     request_body = {"importContext": import_context}
 
-    # Execute the import operation
+    ## Execute the import operation
     request = service.instances().import_(
-        project=project_id,
-        instance=instance_id,
-        body=request_body
+        project=project_id, instance=instance_id, body=request_body
     )
     response = request.execute()
-    operation_id = response['name']
+    operation_id = response["name"]
 
     if not wait_for_completion:
         return response
 
-    # Monitor the operation status
+    ## Monitor the operation status
     while True:
-        op_request = service.operations().get(project=project_id, operation=operation_id)
+        op_request = service.operations().get(
+            project=project_id, operation=operation_id
+        )
         op_response = op_request.execute()
-        if op_response['status'] == 'DONE':
-            if 'error' in op_response:
+        if op_response["status"] == "DONE":
+            if "error" in op_response:
                 raise Exception(f"Import failed: {op_response['error']}")
             return op_response
         time.sleep(poll_interval)

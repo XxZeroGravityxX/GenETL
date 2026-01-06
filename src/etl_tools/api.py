@@ -33,9 +33,9 @@ def API_request(
 
     """
 
-    # Make request to the API
+    ## Make request to the API
     if request_type.lower() == "get":
-        # A GET request to the API
+        ### A GET request to the API
         response = requests.get(
             url=url,
             data=data,
@@ -46,7 +46,7 @@ def API_request(
             **kwargs,
         ).json()
     elif request_type.lower() == "post":
-        # A POST request to the API
+        ### A POST request to the API
         response = requests.post(
             url=url,
             data=data,
@@ -57,7 +57,7 @@ def API_request(
             **kwargs,
         ).json()
     elif request_type.lower() == "put":
-        # A PUT request to the API
+        ### A PUT request to the API
         response = requests.put(
             url=url,
             data=data,
@@ -68,7 +68,7 @@ def API_request(
             **kwargs,
         ).json()
     elif request_type.lower() == "delete":
-        # A DELETE request to the API
+        ### A DELETE request to the API
         response = requests.delete(
             url=url,
             data=data,
@@ -79,7 +79,7 @@ def API_request(
             **kwargs,
         ).json()
     elif request_type.lower() == "patch":
-        # A PATCH request to the API
+        ### A PATCH request to the API
         response = requests.patch(
             url=url,
             data=data,
@@ -90,7 +90,7 @@ def API_request(
             **kwargs,
         ).json()
     elif request_type.lower() == "head":
-        # A HEAD request to the API
+        ### A HEAD request to the API
         response = requests.head(
             url=url,
             data=data,
@@ -101,7 +101,7 @@ def API_request(
             **kwargs,
         ).json()
     elif request_type.lower() == "options":
-        # A OPTIONS request to the API
+        ### A OPTIONS request to the API
         response = requests.options(
             url=url,
             data=data,
