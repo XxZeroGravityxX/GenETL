@@ -86,6 +86,10 @@ def gcs_upload_file(
     file_format:        str. File format (csv, json, parquet, xlsx). If None, inferred from file extension.
     encoding:           str. Encoding to use. Default 'utf-8'.
     **kwargs:           Additional arguments (sep, index for CSV; orient for JSON; etc.).
+
+    Output:
+    result:             dict. Dictionary containing upload information including file_path, bucket, blob,
+                        file_size_bytes, file_format, and status.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -142,6 +146,16 @@ def gcs_upload_file(
     content_type = _get_content_type(file_format)
     blob.upload_from_string(content, content_type=content_type)
 
+    ## Return upload information
+    return {
+        "file_path": gcs_file_path,
+        "bucket": bucket_name,
+        "blob": blob_path,
+        "file_size_bytes": len(content),
+        "file_format": file_format,
+        "status": "uploaded",
+    }
+
 
 def gcs_download_file(
     gcs_file_path,
@@ -161,7 +175,8 @@ def gcs_download_file(
     **kwargs:           Additional arguments (passed to pandas read functions).
 
     Output:
-    data:               pd.DataFrame or dict or bytes. Downloaded data.
+    result:             dict. Dictionary containing the data and metadata including data, file_path, bucket,
+                        blob, file_size_bytes, file_format, and return_type.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -181,28 +196,48 @@ def gcs_download_file(
     file_data = blob.download_as_bytes()
 
     if return_bytes:
-        return file_data
+        return {
+            "data": file_data,
+            "file_path": gcs_file_path,
+            "bucket": bucket_name,
+            "blob": blob_path,
+            "file_size_bytes": len(file_data),
+            "file_format": file_format,
+            "return_type": "bytes",
+        }
 
     ## Parse data based on format
+    parsed_data = None
     if file_format == "csv":
         csv_buffer = BytesIO(file_data)
-        return pd.read_csv(csv_buffer, **kwargs)
+        parsed_data = pd.read_csv(csv_buffer, **kwargs)
 
     elif file_format == "json":
-        return json.loads(file_data.decode("utf-8"))
+        parsed_data = json.loads(file_data.decode("utf-8"))
 
     elif file_format == "parquet":
         parquet_buffer = BytesIO(file_data)
-        return pd.read_parquet(parquet_buffer, **kwargs)
+        parsed_data = pd.read_parquet(parquet_buffer, **kwargs)
 
     elif file_format == "xlsx":
         xlsx_buffer = BytesIO(file_data)
-        return pd.read_excel(xlsx_buffer, **kwargs)
+        parsed_data = pd.read_excel(xlsx_buffer, **kwargs)
 
     else:
         raise ValueError(
             f"Unsupported file format: {file_format}. Supported formats: csv, json, parquet, xlsx."
         )
+
+    ## Return download information with parsed data
+    return {
+        "data": parsed_data,
+        "file_path": gcs_file_path,
+        "bucket": bucket_name,
+        "blob": blob_path,
+        "file_size_bytes": len(file_data),
+        "file_format": file_format,
+        "return_type": file_format,
+    }
 
 
 def gcs_delete_files(
@@ -407,7 +442,8 @@ def cloud_sql_to_gcs(
     **kwargs:           Additional arguments for export context (e.g., offload, csvExportOptions).
 
     Output:
-    operation:          dict. The operation response containing operation details.
+    result:             dict. Dictionary containing operation details including operation_id, operation_type,
+                        status, instance, database, destination, file_type, and operation_response.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -434,7 +470,16 @@ def cloud_sql_to_gcs(
     operation_id = response["name"]
 
     if not wait_for_completion:
-        return response
+        return {
+            "operation_id": operation_id,
+            "operation_type": "export",
+            "status": "running",
+            "instance": instance_id,
+            "database": database,
+            "destination": gcs_uri,
+            "file_type": file_type,
+            "operation_response": response,
+        }
 
     ## Monitor the operation status
     while True:
@@ -445,7 +490,16 @@ def cloud_sql_to_gcs(
         if op_response["status"] == "DONE":
             if "error" in op_response:
                 raise Exception(f"Export failed: {op_response['error']}")
-            return op_response
+            return {
+                "operation_id": operation_id,
+                "operation_type": "export",
+                "status": "completed",
+                "instance": instance_id,
+                "database": database,
+                "destination": gcs_uri,
+                "file_type": file_type,
+                "operation_response": op_response,
+            }
         time.sleep(poll_interval)
 
 
@@ -473,7 +527,8 @@ def gcs_to_cloud_sql(
     **kwargs:           Additional arguments for import context (e.g., csvImportOptions, sqlImportOptions).
 
     Output:
-    operation:          dict. The operation response containing operation details.
+    result:             dict. Dictionary containing operation details including operation_id, operation_type,
+                        status, instance, database, source, file_type, and operation_response.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -500,7 +555,16 @@ def gcs_to_cloud_sql(
     operation_id = response["name"]
 
     if not wait_for_completion:
-        return response
+        return {
+            "operation_id": operation_id,
+            "operation_type": "import",
+            "status": "running",
+            "instance": instance_id,
+            "database": database,
+            "source": gcs_uri,
+            "file_type": file_type,
+            "operation_response": response,
+        }
 
     ## Monitor the operation status
     while True:
@@ -511,5 +575,14 @@ def gcs_to_cloud_sql(
         if op_response["status"] == "DONE":
             if "error" in op_response:
                 raise Exception(f"Import failed: {op_response['error']}")
-            return op_response
+            return {
+                "operation_id": operation_id,
+                "operation_type": "import",
+                "status": "completed",
+                "instance": instance_id,
+                "database": database,
+                "source": gcs_uri,
+                "file_type": file_type,
+                "operation_response": op_response,
+            }
         time.sleep(poll_interval)
