@@ -5,10 +5,7 @@ import pandas as pd
 import sqlalchemy
 
 # Import custom modules
-from etl_tools.sql import sql_exec_stmt, sql_read_data, sql_upload_data, sql_copy_data
-from etl_tools.aws import dynamodb_read_data, dynamodb_upload_data, s3_upload_csv, s3_read_csv
-from etl_tools.gcp import gcs_upload_csv, gcs_read_csv
-from etl_tools.api import API_request
+from etl_tools.sql import sql_exec_stmt, sql_read_data, sql_upload_data
 
 
 class ExtractDeleteAndLoad(object):
@@ -99,6 +96,22 @@ class ExtractDeleteAndLoad(object):
                 # Get connection dictionary
                 self.conn_info_dict[p_name][key] = self.connections_dict[val]
 
+        ## Assert class parameters
+        allowed_conn_types = {
+            "pyodbc",
+            "redshift",
+            "sqlalchemy",
+            "oracledb",
+            "bigquery",
+            "mysql",
+        }
+        for process in self.conn_type_dict:
+            for key, conn_type in self.conn_type_dict[process].items():
+                assert conn_type in allowed_conn_types, (
+                    f"Invalid connection type '{conn_type}' for {process}:{key}. "
+                    f"Allowed types are: {', '.join(sorted(allowed_conn_types))}"
+                )
+
     def delete_data(self, **kwargs):
         """
         Function to delete data from the source.
@@ -148,60 +161,29 @@ class ExtractDeleteAndLoad(object):
             conn_type = self.conn_type_dict["delete"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["delete"][key]
+
             # Delete data
-            if conn_type == "dynamodb":
-                pass
-            elif conn_type == "s3":
-                pass
-            elif conn_type == "api":
-                api_response = API_request(
-                    self.configs_dict["delete_urls_dict"][key],
-                    headers=(
-                        self.configs_dict["delete_headers_dict"][key]
-                        if "delete_headers_dict" in self.configs_dict.keys()
-                        else None
-                    ),
-                    params=(
-                        self.configs_dict["delete_params_dict"][key]
-                        if "delete_params_dict" in self.configs_dict.keys()
-                        else None
-                    ),
-                    data=(
-                        self.configs_dict["delete_datas_dict"][key]
-                        if "delete_datas_dict" in self.configs_dict.keys()
-                        and key in self.configs_dict["delete_datas_dict"].keys()
-                        else None
-                    ),
-                    json=(
-                        self.configs_dict["delete_jsons_dict"][key]
-                        if "delete_jsons_dict" in self.configs_dict.keys()
-                        and key in self.configs_dict["delete_jsons_dict"].keys()
-                        else None
-                    ),
-                    request_type=(self.configs_dict["delete_request_types_dict"][key]),
+
+            ## Get delete statement
+            stmt = (
+                eval(self.configs_dict["delete_sql_stmts_dict"][key])
+                if (
+                    "{" in self.configs_dict["delete_sql_stmts_dict"][key]
+                    and evaluate_vars
                 )
-                print(f"     API response: {api_response}")
-            else:
-                # Get delete statement
-                stmt = (
-                    eval(self.configs_dict["delete_sql_stmts_dict"][key])
-                    if (
-                        "{" in self.configs_dict["delete_sql_stmts_dict"][key]
-                        and evaluate_vars
-                    )
-                    else self.configs_dict["delete_sql_stmts_dict"][key]
+                else self.configs_dict["delete_sql_stmts_dict"][key]
+            )
+            print(f"     Delete query: {stmt}")
+            ## Execute delete statement
+            try:
+                rows_affected, output = sql_exec_stmt(
+                    stmt,
+                    conn_dict,
+                    mode=conn_type,
+                    **{k: v for k, v in kwargs.items() if k not in ("mode")},
                 )
-                print(f"     Delete query: {stmt}")
-                # Execute delete statement
-                try:
-                    rows_affected, output = sql_exec_stmt(
-                        stmt,
-                        conn_dict,
-                        mode=conn_type,
-                        **{k: v for k, v in kwargs.items() if k not in ("mode")},
-                    )
-                except Exception as e:
-                    print(f"Error deleting data: {type(e)} - {e}")
+            except Exception as e:
+                print(f"Error deleting data: {type(e)} - {e}")
 
         pass
 
@@ -250,36 +232,29 @@ class ExtractDeleteAndLoad(object):
             conn_type = self.conn_type_dict["truncate"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["truncate"][key]
+
             # Truncate data
-            if conn_type == "dynamodb":
-                pass
-            elif conn_type == "s3":
-                pass
-            elif conn_type == "api":
-                pass
-            else:
-                # Get truncate statement
-                stmt = (
-                    eval(self.configs_dict["truncate_sql_stmts_dict"][key])
-                    if (
-                        "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
-                        and evaluate_vars
-                    )
-                    else self.configs_dict["truncate_sql_stmts_dict"][key]
+
+            ## Get truncate statement
+            stmt = (
+                eval(self.configs_dict["truncate_sql_stmts_dict"][key])
+                if (
+                    "{" in self.configs_dict["truncate_sql_stmts_dict"][key]
+                    and evaluate_vars
                 )
-                print(f"     Truncate query: {stmt}")
-                # Execute truncate statement
-                try:
-                    rows_affected, output = sql_exec_stmt(
-                        stmt,
-                        conn_dict,
-                        mode=(
-                            conn_type if "mode" not in kwargs.keys() else kwargs["mode"]
-                        ),
-                        **{k: v for k, v in kwargs.items() if k not in ("mode")},
-                    )
-                except Exception as e:
-                    print(f"Error truncating data: {type(e)} - {e}")
+                else self.configs_dict["truncate_sql_stmts_dict"][key]
+            )
+            print(f"     Truncate query: {stmt}")
+            ## Execute truncate statement
+            try:
+                rows_affected, output = sql_exec_stmt(
+                    stmt,
+                    conn_dict,
+                    mode=(conn_type if "mode" not in kwargs.keys() else kwargs["mode"]),
+                    **{k: v for k, v in kwargs.items() if k not in ("mode")},
+                )
+            except Exception as e:
+                print(f"Error truncating data: {type(e)} - {e}")
 
         pass
 
@@ -330,199 +305,86 @@ class ExtractDeleteAndLoad(object):
             conn_type = self.conn_type_dict["download"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["download"][key]
+
             # Read data
-            if conn_type == "dynamodb":
-                print(
-                    f"     DynamoDB table: {self.configs_dict['download_tables_dict'][key]}"
+
+            ## Get download statement
+            stmt = (
+                eval(self.configs_dict["download_sql_stmts_dict"][key])
+                if (
+                    "{" in self.configs_dict["download_sql_stmts_dict"][key]
+                    and evaluate_vars
                 )
-                # Download data from DynamoDB
-                data = dynamodb_read_data(
-                    self.configs_dict["download_tables_dict"][key],
-                    self.connections_dict[f"aws_access_key_id_{conn_suff}"],
-                    self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
-                    self.connections_dict[f"region_name_{conn_suff}"],
-                    **kwargs,
-                )
-            elif conn_type == "s3":
-                print(f"     S3 bucket: {self.configs_dict['s3_file_paths_dict'][key]}")
-                # Download data from S3
-                data = s3_read_csv(
-                    self.configs_dict["s3_file_paths_dict"][key],
-                    self.connections_dict[f"aws_access_key_id_{conn_suff}"],
-                    self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
-                    region_name=(
-                        self.connections_dict[f"region_name_{conn_suff}"]
-                        if "region_name" not in kwargs.keys()
-                        else kwargs["region_name"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k not in ("region_name")
-                    },
-                )
-            elif conn_type == "gcs":
-                print(f"     GCS bucket: {self.configs_dict['gcs_file_paths_dict'][key]}")
-                # Download data from GCS
-                data = gcs_read_csv(
-                    self.configs_dict["gcs_file_paths_dict"][key],
-                    client=(
-                        (
-                            self.configs_dict["download_connect_args_dict"][key].get("client")
-                            if "download_connect_args_dict" in self.configs_dict.keys()
-                            and key in self.configs_dict["download_connect_args_dict"].keys()
-                            else None
-                        )
-                        if "client" not in kwargs.keys()
-                        else kwargs["client"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k not in ("client")
-                    },
-                )
-            elif conn_type == "api":
-                print(
-                    f"     API endpoint: {self.configs_dict['download_urls_dict'][key]}"
-                )
-                # Download data from API
-                data = API_request(
-                    self.configs_dict["download_urls_dict"][key],
-                    headers=(
-                        (
-                            self.configs_dict["download_headers_dict"][key]
-                            if "download_headers_dict" in self.configs_dict.keys()
-                            else None
-                        )
-                        if "headers" not in kwargs.keys()
-                        else kwargs["headers"]
-                    ),
-                    params=(
-                        (
-                            self.configs_dict["download_params_dict"][key]
-                            if "download_params_dict" in self.configs_dict.keys()
-                            else None
-                        )
-                        if "params" not in kwargs.keys()
-                        else kwargs["params"]
-                    ),
-                    data=(
-                        (
-                            self.configs_dict["download_datas_dict"][key]
-                            if "download_datas_dict" in self.configs_dict.keys()
-                            and key in self.configs_dict["download_datas_dict"].keys()
-                            else None
-                        )
-                        if "data" not in kwargs.keys()
-                        else kwargs["data"]
-                    ),
-                    json=(
-                        (
-                            self.configs_dict["download_jsons_dict"][key]
-                            if "download_jsons_dict" in self.configs_dict.keys()
-                            and key in self.configs_dict["download_jsons_dict"].keys()
-                            else None
-                        )
-                        if "json" not in kwargs.keys()
-                        else kwargs["json"]
-                    ),
-                    request_type=(
-                        (self.configs_dict["download_request_types_dict"][key])
-                        if "request_type" not in kwargs.keys()
-                        else kwargs["request_type"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "headers",
-                            "params",
-                            "data",
-                            "json",
-                            "request_type",
-                        )
-                    },
-                )
-            else:
-                # Get download statement
-                stmt = (
-                    eval(self.configs_dict["download_sql_stmts_dict"][key])
-                    if (
-                        "{" in self.configs_dict["download_sql_stmts_dict"][key]
-                        and evaluate_vars
+                else self.configs_dict["download_sql_stmts_dict"][key]
+            )
+            print(f"     Download query: {stmt}")
+            ## Download data
+            data = sql_read_data(
+                stmt,
+                conn_dict,
+                custom_conn_str=(
+                    (
+                        self.configs_dict["download_custom_conn_strs_dict"][key]
+                        if "download_custom_conn_strs_dict" in self.configs_dict.keys()
+                        else None
                     )
-                    else self.configs_dict["download_sql_stmts_dict"][key]
-                )
-                print(f"     Download query: {stmt}")
-                # Download data
-                data = sql_read_data(
-                    stmt,
-                    conn_dict,
-                    custom_conn_str=(
-                        (
-                            self.configs_dict["download_custom_conn_strs_dict"][key]
-                            if "download_custom_conn_strs_dict"
-                            in self.configs_dict.keys()
-                            else None
-                        )
-                        if "custom_conn_str" not in kwargs.keys()
-                        else kwargs["custom_conn_str"]
-                    ),
-                    mode=(conn_type if "mode" not in kwargs.keys() else kwargs["mode"]),
-                    connect_args=(
-                        (
-                            self.configs_dict["download_connect_args_dict"][key]
-                            if "download_connect_args_dict" in self.configs_dict.keys()
-                            else {}
-                        )
-                        if "connect_args" not in kwargs.keys()
-                        else kwargs["connect_args"]
-                    ),
-                    name=(
-                        (
-                            self.configs_dict["download_tables_dict"][key]
-                            if "download_tables_dict" in self.configs_dict.keys()
-                            else key
-                        )
-                        if "name" not in kwargs.keys()
-                        else kwargs["name"]
-                    ),
-                    max_n_try=(
-                        (
-                            self.configs_dict["max_n_try"]
-                            if "max_n_try" in self.configs_dict.keys()
-                            else 3
-                        )
-                        if "max_n_try" not in kwargs.keys()
-                        else kwargs["max_n_try"]
-                    ),
-                    log_file_path=(
-                        (
-                            self.configs_dict["log_file_path"]
-                            if "log_file_path" in self.configs_dict.keys()
-                            else "logs"
-                        )
-                        if "log_file_path" not in kwargs.keys()
-                        else kwargs["log_file_path"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "custom_conn_str",
-                            "mode",
-                            "connect_args",
-                            "name",
-                            "max_n_try",
-                            "log_file_path",
-                        )
-                    },
-                )
-            # Add data to raw data dictionary
+                    if "custom_conn_str" not in kwargs.keys()
+                    else kwargs["custom_conn_str"]
+                ),
+                mode=(conn_type if "mode" not in kwargs.keys() else kwargs["mode"]),
+                connect_args=(
+                    (
+                        self.configs_dict["download_connect_args_dict"][key]
+                        if "download_connect_args_dict" in self.configs_dict.keys()
+                        else {}
+                    )
+                    if "connect_args" not in kwargs.keys()
+                    else kwargs["connect_args"]
+                ),
+                name=(
+                    (
+                        self.configs_dict["download_tables_dict"][key]
+                        if "download_tables_dict" in self.configs_dict.keys()
+                        else key
+                    )
+                    if "name" not in kwargs.keys()
+                    else kwargs["name"]
+                ),
+                max_n_try=(
+                    (
+                        self.configs_dict["max_n_try"]
+                        if "max_n_try" in self.configs_dict.keys()
+                        else 3
+                    )
+                    if "max_n_try" not in kwargs.keys()
+                    else kwargs["max_n_try"]
+                ),
+                log_file_path=(
+                    (
+                        self.configs_dict["log_file_path"]
+                        if "log_file_path" in self.configs_dict.keys()
+                        else "logs"
+                    )
+                    if "log_file_path" not in kwargs.keys()
+                    else kwargs["log_file_path"]
+                ),
+                **{
+                    k: v
+                    for k, v in kwargs.items()
+                    if k
+                    not in (
+                        "custom_conn_str",
+                        "mode",
+                        "connect_args",
+                        "name",
+                        "max_n_try",
+                        "log_file_path",
+                    )
+                },
+            )
+            ## Add data to raw data dictionary
             self.raw_data[key] = data.copy()
+
         # Free memory
         del data
 
@@ -557,408 +419,124 @@ class ExtractDeleteAndLoad(object):
             conn_type = self.conn_type_dict["upload"][key]
             # Get connection dictionary
             conn_dict = self.conn_info_dict["upload"][key]
+
             # Upload data
-            if conn_type == "dynamodb":
-                print(
-                    f"     DynamoDB table: {self.configs_dict['upload_tables_dict'][key]}"
-                )
-                # Upload data to DynamoDB
-                dynamodb_upload_data(
-                    upload_data,
-                    self.configs_dict["upload_tables_dict"][key],
-                    self.connections_dict[f"aws_access_key_id_{conn_suff}"],
-                    self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
-                    self.connections_dict[f"region_name_{conn_suff}"],
-                    batch_size=(
-                        (
-                            self.configs_dict["dynamodb_batch_sizes_dict"][key]
-                            if "dynamodb_batch_sizes_dict" in self.configs_dict.keys()
-                            else 25
-                        )
-                        if "batch_size" not in kwargs.keys()
-                        else kwargs["batch_size"]
-                    ),
-                    overwrite_by_pkeys=(
-                        (
-                            self.configs_dict["dynamodb_key_dicts"][key]
-                            if "dynamodb_key_dicts" in self.configs_dict.keys()
-                            else ["id"]
-                        )
-                        if "overwrite_by_pkeys" not in kwargs.keys()
-                        else kwargs["overwrite_by_pkeys"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k not in ("batch_size", "overwrite_by_pkeys")
-                    },
-                )
-            elif conn_type == "s3":
-                print(f"     S3 bucket: {self.configs_dict['s3_file_paths_dict'][key]}")
-                # Upload data to S3
-                s3_upload_csv(
-                    upload_data,
-                    self.configs_dict["s3_file_paths_dict"][key],
-                    self.connections_dict[f"aws_access_key_id_{conn_suff}"],
-                    self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
-                    region_name=(
-                        self.connections_dict[f"region_name_{conn_suff}"]
-                        if "region_name" not in kwargs.keys()
-                        else kwargs["region_name"]
-                    ),
-                    sep=(
-                        (
-                            self.configs_dict["s3_csv_seps_dict"][key]
-                            if "s3_csv_seps_dict" in self.configs_dict.keys()
-                            else ","
-                        )
-                        if "sep" not in kwargs.keys()
-                        else kwargs["sep"]
-                    ),
-                    index=(False if "index" not in kwargs.keys() else kwargs["index"]),
-                    encoding=(
-                        (
-                            self.configs_dict["s3_csv_encodings_dict"][key]
-                            if "s3_csv_encodings_dict" in self.configs_dict.keys()
-                            else "utf-8"
-                        )
-                        if "encoding" not in kwargs.keys()
-                        else kwargs["encoding"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "region_name",
-                            "sep",
-                            "index",
-                            "encoding",
-                        )
-                    },
-                )
-            elif conn_type == "gcs":
-                print(f"     GCS bucket: {self.configs_dict['gcs_file_paths_dict'][key]}")
-                # Upload data to GCS
-                gcs_upload_csv(
-                    upload_data,
-                    self.configs_dict["gcs_file_paths_dict"][key],
-                    client=(
-                        (
-                            self.configs_dict["upload_connect_args_dict"][key].get("client")
-                            if "upload_connect_args_dict" in self.configs_dict.keys()
-                            and key in self.configs_dict["upload_connect_args_dict"].keys()
-                            else None
-                        )
-                        if "client" not in kwargs.keys()
-                        else kwargs["client"]
-                    ),
-                    sep=(
-                        (
-                            self.configs_dict["gcs_csv_seps_dict"][key]
-                            if "gcs_csv_seps_dict" in self.configs_dict.keys()
-                            else ","
-                        )
-                        if "sep" not in kwargs.keys()
-                        else kwargs["sep"]
-                    ),
-                    index=(False if "index" not in kwargs.keys() else kwargs["index"]),
-                    encoding=(
-                        (
-                            self.configs_dict["gcs_csv_encodings_dict"][key]
-                            if "gcs_csv_encodings_dict" in self.configs_dict.keys()
-                            else "utf-8"
-                        )
-                        if "encoding" not in kwargs.keys()
-                        else kwargs["encoding"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "client",
-                            "sep",
-                            "index",
-                            "encoding",
-                        )
-                    },
-                )
-            elif conn_type == "api":
-                print(
-                    f"     API endpoint: {self.configs_dict['upload_urls_dict'][key]}"
-                )
-                # Upload data to API
-                api_response = API_request(
-                    self.configs_dict["upload_urls_dict"][key],
-                    headers=(
-                        (
-                            self.configs_dict["upload_headers_dict"][key]
-                            if "upload_headers_dict" in self.configs_dict.keys()
-                            else None
-                        )
-                        if "headers" not in kwargs.keys()
-                        else kwargs["headers"]
-                    ),
-                    data=(
-                        (
-                            upload_data
-                            if "upload_datas_dict" in self.configs_dict.keys()
-                            and key in self.configs_dict["upload_datas_dict"].keys()
-                            else None
-                        )
-                        if "data" not in kwargs.keys()
-                        else kwargs["data"]
-                    ),
-                    json=(
-                        (
-                            upload_data
-                            if "upload_jsons_dict" in self.configs_dict.keys()
-                            and key in self.configs_dict["upload_jsons_dict"].keys()
-                            else None
-                        )
-                        if "json" not in kwargs.keys()
-                        else kwargs["json"]
-                    ),
-                    request_type=(
-                        self.configs_dict["upload_request_types_dict"][key]
-                        if "request_type" not in kwargs.keys()
-                        else kwargs["request_type"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "headers",
-                            "data",
-                            "json",
-                            "request_type",
-                        )
-                    },
-                )
-                print(f"     API response: {api_response}")
-            elif conn_type == "redshift":
-                print(
-                    f"     Redshift table: {self.configs_dict['upload_tables_dict'][key]}"
-                )
-                # Define column names and data types
-                col_dict = self.configs_dict["upload_python_to_sql_dtypes_dict"][key]
-                # Define dictionary with data types
-                dtypes_dict = {
-                    col: (
-                        eval(
-                            f'{self.sqlalchemy_dtypes[col_dtype.split("(")[0]]}({col_dtype.split("(")[1][:-1]})'
-                        )
-                        if "(" in col_dtype
-                        else eval(f"{self.sqlalchemy_dtypes[col_dtype]}()")
+
+            print(
+                f"     {conn_type.capitalize()} table: {self.configs_dict['upload_tables_dict'][key]}"
+            )
+            ## Define column names and data types
+            col_dict = self.configs_dict["upload_python_to_sql_dtypes_dict"][key]
+            ## Define dictionary with data types
+            dtypes_dict = {
+                col: (
+                    eval(
+                        f'{self.sqlalchemy_dtypes[col_dtype.split("(")[0]]}({col_dtype.split("(")[1][:-1]})'
                     )
-                    for col, col_dtype in col_dict.items()
-                }
-                # Use order defined in data types dictionary
-                upload_data = upload_data[list(col_dict.keys())]
-                # Upload data to S3
-                s3_upload_csv(
-                    upload_data,
-                    self.configs_dict["s3_file_paths_dict"][key],
-                    self.connections_dict[f"aws_access_key_id_{conn_suff}"],
-                    self.connections_dict[f"aws_secret_access_key_{conn_suff}"],
-                    region_name=(
-                        self.connections_dict[f"region_name_{conn_suff}"]
-                        if "region_name" not in kwargs.keys()
-                        else kwargs["region_name"]
-                    ),
-                    sep=(
-                        (
-                            self.configs_dict["s3_csv_seps_dict"][key]
-                            if "s3_csv_seps_dict" in self.configs_dict.keys()
-                            else ","
-                        )
-                        if "sep" not in kwargs.keys()
-                        else kwargs["sep"]
-                    ),
-                    index=(False if "index" not in kwargs.keys() else kwargs["index"]),
-                    encoding=(
-                        (
-                            self.configs_dict["s3_csv_encodings_dict"][key]
-                            if "s3_csv_encodings_dict" in self.configs_dict.keys()
-                            else "utf-8"
-                        )
-                        if "encoding" not in kwargs.keys()
-                        else kwargs["encoding"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "region_name",
-                            "sep",
-                            "index",
-                            "encoding",
-                        )
-                    },
+                    if "(" in col_dtype
+                    else eval(f"{self.sqlalchemy_dtypes[col_dtype]}()")
                 )
-                # Copy data from S3 to redshift
-                sql_copy_data(
-                    self.configs_dict["s3_file_paths_dict"][key],
-                    self.configs_dict["upload_schemas_dict"][key],
-                    self.configs_dict["upload_tables_dict"][key],
-                    conn_dict,
-                    self.connections_dict[f"aws_access_key_id_aws_{conn_suff}"],
-                    self.connections_dict[f"aws_secret_access_key_aws_{conn_suff}"],
-                    self.connections_dict[f"region_name_aws_{conn_suff}"],
-                    name=(
-                        self.configs_dict["upload_tables_dict"][key]
-                        if "name" not in kwargs.keys()
-                        else kwargs["name"]
-                    ),
-                    max_n_try=(
-                        (
-                            self.configs_dict["max_n_try"]
-                            if "max_n_try" in self.configs_dict.keys()
-                            else 3
-                        )
-                        if "max_n_try" not in kwargs.keys()
-                        else kwargs["max_n_try"]
-                    ),
-                    log_file_path=(
-                        (
-                            self.configs_dict["log_file_path"]
-                            if "log_file_path" in self.configs_dict.keys()
-                            else "logs"
-                        )
-                        if "log_file_path" not in kwargs.keys()
-                        else kwargs["log_file_path"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "name",
-                            "max_n_try",
-                            "log_file_path",
-                        )
-                    },
-                )
-            else:
-                print(
-                    f"     {conn_type.capitalize()} table: {self.configs_dict['upload_tables_dict'][key]}"
-                )
-                # Define column names and data types
-                col_dict = self.configs_dict["upload_python_to_sql_dtypes_dict"][key]
-                # Define dictionary with data types
-                dtypes_dict = {
-                    col: (
-                        eval(
-                            f'{self.sqlalchemy_dtypes[col_dtype.split("(")[0]]}({col_dtype.split("(")[1][:-1]})'
-                        )
-                        if "(" in col_dtype
-                        else eval(f"{self.sqlalchemy_dtypes[col_dtype]}()")
+                for col, col_dtype in col_dict.items()
+            }
+            ## Use order defined in data types dictionary
+            upload_data = upload_data[list(col_dict.keys())]
+            ## Upload data to database
+            sql_upload_data(
+                upload_data,
+                self.configs_dict["upload_schemas_dict"][key],
+                self.configs_dict["upload_tables_dict"][key],
+                conn_dict,
+                custom_conn_str=(
+                    (
+                        self.configs_dict["upload_custom_conn_strs_dict"][key]
+                        if "upload_custom_conn_strs_dict" in self.configs_dict.keys()
+                        else None
                     )
-                    for col, col_dtype in col_dict.items()
-                }
-                # Use order defined in data types dictionary
-                upload_data = upload_data[list(col_dict.keys())]
-                # Upload data to database
-                sql_upload_data(
-                    upload_data,
-                    self.configs_dict["upload_schemas_dict"][key],
-                    self.configs_dict["upload_tables_dict"][key],
-                    conn_dict,
-                    custom_conn_str=(
-                        (
-                            self.configs_dict["upload_custom_conn_strs_dict"][key]
-                            if "upload_custom_conn_strs_dict"
-                            in self.configs_dict.keys()
-                            else None
-                        )
-                        if "custom_conn_str" not in kwargs.keys()
-                        else kwargs["custom_conn_str"]
-                    ),
-                    mode=(conn_type if "mode" not in kwargs.keys() else kwargs["mode"]),
-                    connect_args=(
-                        (
-                            self.configs_dict["upload_connect_args_dict"][key]
-                            if "upload_connect_args_dict" in self.configs_dict.keys()
-                            else {}
-                        )
-                        if "connect_args" not in kwargs.keys()
-                        else kwargs["connect_args"]
-                    ),
-                    name=(
-                        self.configs_dict["upload_tables_dict"][key]
-                        if "name" not in kwargs.keys()
-                        else kwargs["name"]
-                    ),
-                    chunksize=(
-                        (
-                            self.configs_dict["upload_chunksizes_dict"][key]
-                            if "upload_chunksizes_dict" in self.configs_dict.keys()
-                            else 100
-                        )
-                        if "chunksize" not in kwargs.keys()
-                        else kwargs["chunksize"]
-                    ),
-                    method=(
-                        (
-                            self.configs_dict["upload_methods_dict"][key]
-                            if "upload_methods_dict" in self.configs_dict.keys()
-                            else "multi"
-                        )
-                        if "method" not in kwargs.keys()
-                        else kwargs["method"]
-                    ),
-                    dtypes_dict=(
-                        dtypes_dict
-                        if "dtypes_dict" not in kwargs.keys()
-                        else kwargs["dtypes_dict"]
-                    ),
-                    max_n_try=(
-                        (
-                            self.configs_dict["max_n_try"]
-                            if "max_n_try" in self.configs_dict.keys()
-                            else 3
-                        )
-                        if "max_n_try" not in kwargs.keys()
-                        else kwargs["max_n_try"]
-                    ),
-                    n_jobs=(
-                        (
-                            self.configs_dict["n_parallel"]
-                            if "n_parallel" in self.configs_dict.keys()
-                            else -1
-                        )
-                        if "n_jobs" not in kwargs.keys()
-                        else kwargs["n_jobs"]
-                    ),
-                    log_file_path=(
-                        (
-                            self.configs_dict["log_file_path"]
-                            if "log_file_path" in self.configs_dict.keys()
-                            else "logs"
-                        )
-                        if "log_file_path" not in kwargs.keys()
-                        else kwargs["log_file_path"]
-                    ),
-                    **{
-                        k: v
-                        for k, v in kwargs.items()
-                        if k
-                        not in (
-                            "custom_conn_str",
-                            "mode",
-                            "connect_args",
-                            "name",
-                            "chunksize",
-                            "method",
-                            "dtypes_dict",
-                            "max_n_try",
-                            "n_jobs",
-                            "log_file_path",
-                        )
-                    },
-                )
+                    if "custom_conn_str" not in kwargs.keys()
+                    else kwargs["custom_conn_str"]
+                ),
+                mode=(conn_type if "mode" not in kwargs.keys() else kwargs["mode"]),
+                connect_args=(
+                    (
+                        self.configs_dict["upload_connect_args_dict"][key]
+                        if "upload_connect_args_dict" in self.configs_dict.keys()
+                        else {}
+                    )
+                    if "connect_args" not in kwargs.keys()
+                    else kwargs["connect_args"]
+                ),
+                name=(
+                    self.configs_dict["upload_tables_dict"][key]
+                    if "name" not in kwargs.keys()
+                    else kwargs["name"]
+                ),
+                chunksize=(
+                    (
+                        self.configs_dict["upload_chunksizes_dict"][key]
+                        if "upload_chunksizes_dict" in self.configs_dict.keys()
+                        else 100
+                    )
+                    if "chunksize" not in kwargs.keys()
+                    else kwargs["chunksize"]
+                ),
+                method=(
+                    (
+                        self.configs_dict["upload_methods_dict"][key]
+                        if "upload_methods_dict" in self.configs_dict.keys()
+                        else "multi"
+                    )
+                    if "method" not in kwargs.keys()
+                    else kwargs["method"]
+                ),
+                dtypes_dict=(
+                    dtypes_dict
+                    if "dtypes_dict" not in kwargs.keys()
+                    else kwargs["dtypes_dict"]
+                ),
+                max_n_try=(
+                    (
+                        self.configs_dict["max_n_try"]
+                        if "max_n_try" in self.configs_dict.keys()
+                        else 3
+                    )
+                    if "max_n_try" not in kwargs.keys()
+                    else kwargs["max_n_try"]
+                ),
+                n_jobs=(
+                    (
+                        self.configs_dict["n_parallel"]
+                        if "n_parallel" in self.configs_dict.keys()
+                        else -1
+                    )
+                    if "n_jobs" not in kwargs.keys()
+                    else kwargs["n_jobs"]
+                ),
+                log_file_path=(
+                    (
+                        self.configs_dict["log_file_path"]
+                        if "log_file_path" in self.configs_dict.keys()
+                        else "logs"
+                    )
+                    if "log_file_path" not in kwargs.keys()
+                    else kwargs["log_file_path"]
+                ),
+                **{
+                    k: v
+                    for k, v in kwargs.items()
+                    if k
+                    not in (
+                        "custom_conn_str",
+                        "mode",
+                        "connect_args",
+                        "name",
+                        "chunksize",
+                        "method",
+                        "dtypes_dict",
+                        "max_n_try",
+                        "n_jobs",
+                        "log_file_path",
+                    )
+                },
+            )
 
         pass
