@@ -68,6 +68,39 @@ def _get_content_type(file_format):
     return content_type_map.get(file_format, "application/octet-stream")
 
 
+def _ensure_file_extension(gcs_file_path, file_format):
+    """
+    Ensure GCS file path has the correct extension for the file format.
+
+    Parameters:
+    gcs_file_path:      str. GCS file path.
+    file_format:        str. File format (csv, json, parquet, avro).
+
+    Output:
+    gcs_file_path:      str. GCS file path with correct extension.
+    """
+    extension_map = {
+        "csv": ".csv",
+        "json": ".json",
+        "parquet": ".parquet",
+        "avro": ".avro",
+    }
+
+    extension = extension_map.get(file_format, f".{file_format}")
+
+    # Check if path already has the correct extension
+    if not gcs_file_path.endswith(extension):
+        # Remove any existing extension and add the correct one
+        base_path = (
+            gcs_file_path.rsplit(".", 1)[0]
+            if "." in gcs_file_path.split("/")[-1]
+            else gcs_file_path
+        )
+        gcs_file_path = base_path + extension
+
+    return gcs_file_path
+
+
 def gcs_upload_file(
     data,
     gcs_file_path,
@@ -305,33 +338,25 @@ def bigquery_to_gcs(
     dataset_id:         str. BigQuery dataset ID.
     table_id:           str. BigQuery table ID.
     gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
+                        For parquet/avro with multiple files, use wildcard: 'gs://bucket/path/file-*.parquet'
     file_format:        str. Export format (csv, json, parquet, avro). Default 'csv'.
     bq_client:          google.cloud.bigquery.Client. Optional. BigQuery client.
-    **kwargs:           Additional arguments for extract_table job.
+    **kwargs:           Additional arguments for extract_table job (e.g., compression, field_delimiter).
 
     Output:
-    job:                google.cloud.bigquery.ExtractJobConfig. BigQuery extract job.
+    job:                google.cloud.bigquery.ExtractJob. BigQuery extract job result.
     """
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
+    ## Ensure destination path has correct file extension (unless using wildcard for multi-file export)
+    if "*" not in gcs_file_path:
+        gcs_file_path = _ensure_file_extension(gcs_file_path, file_format)
+
     ## Create extract job config
     extract_config = bigquery.ExtractJobConfig()
-    extract_config.source_format = (
-        bigquery.SourceFormat.CSV
-        if file_format == "csv"
-        else (
-            bigquery.SourceFormat.JSON
-            if file_format == "json"
-            else (
-                bigquery.SourceFormat.PARQUET
-                if file_format == "parquet"
-                else bigquery.SourceFormat.AVRO
-            )
-        )
-    )
 
     ## Apply additional kwargs to extract config
     for key, value in kwargs.items():
@@ -397,6 +422,16 @@ def gcs_to_bigquery(
         )
     )
 
+    ## Convert string write_disposition to enum if needed
+    if isinstance(write_disposition, str):
+        write_disposition_map = {
+            "WRITE_TRUNCATE": bigquery.WriteDisposition.WRITE_TRUNCATE,
+            "WRITE_APPEND": bigquery.WriteDisposition.WRITE_APPEND,
+            "WRITE_EMPTY": bigquery.WriteDisposition.WRITE_EMPTY,
+        }
+        write_disposition = write_disposition_map.get(
+            write_disposition, bigquery.WriteDisposition.WRITE_TRUNCATE
+        )
     load_config.write_disposition = write_disposition
 
     ## Apply additional kwargs to load config
@@ -405,10 +440,20 @@ def gcs_to_bigquery(
             setattr(load_config, key, value)
 
     # Create and run load job
-    load_job = bq_client.load_table_from_uri(
-        gcs_file_path, table_id, job_config=load_config
-    )
-    load_job.result()
+    try:
+        load_job = bq_client.load_table_from_uri(
+            gcs_file_path, table_id, job_config=load_config
+        )
+        load_job.result()
+    except Exception as e:
+        # Provide helpful error message if format mismatch is likely
+        error_msg = str(e)
+        if "not in" in error_msg and "format" in error_msg.lower():
+            raise ValueError(
+                f"File format mismatch: The file at {gcs_file_path} is not in {file_format.upper()} format. "
+                f"Please ensure the file format matches the file extension or explicitly specify the correct format."
+            ) from e
+        raise
 
     return load_job
 
@@ -450,7 +495,7 @@ def cloud_sql_to_gcs(
     gcs_uri = f"gs://{bucket_name}/{blob_path}"
 
     ## Construct the service object for the Cloud SQL Admin API
-    service = discovery.build("sqladmin", "v1beta4")
+    service = discovery.build("sqladmin", "v1")
 
     ## Build export context
     export_context = {
@@ -535,7 +580,7 @@ def gcs_to_cloud_sql(
     gcs_uri = f"gs://{bucket_name}/{blob_path}"
 
     ## Construct the service object for the Cloud SQL Admin API
-    service = discovery.build("sqladmin", "v1beta4")
+    service = discovery.build("sqladmin", "v1")
 
     ## Build import context
     import_context = {
