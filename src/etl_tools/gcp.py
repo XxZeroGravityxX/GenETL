@@ -40,12 +40,14 @@ def _get_file_format(gcs_file_path):
     Extract file format from GCS file path.
 
     Parameters:
-    gcs_file_path:      str. GCS file path.
+    gcs_file_path:      str. GCS file path, can include wildcards (e.g., 'gs://bucket/path/file-*.parquet').
 
     Output:
     file_format:        str. File format (csv, json, parquet, etc.).
     """
-    return gcs_file_path.split(".")[-1].lower()
+    # Remove wildcard patterns to get the actual extension
+    clean_path = gcs_file_path.replace("*", "")
+    return clean_path.split(".")[-1].lower()
 
 
 def _get_content_type(file_format):
@@ -130,6 +132,7 @@ def gcs_upload_file(
     ## Infer file format if not provided
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
+    file_format = file_format.lower()
 
     ## Create client if not provided
     if client is None:
@@ -217,6 +220,7 @@ def gcs_download_file(
     ## Infer file format if not provided
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
+    file_format = file_format.lower()
 
     ## Create client if not provided
     if client is None:
@@ -349,14 +353,36 @@ def bigquery_to_gcs(
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
+    file_format = file_format.lower()
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
     ## Ensure destination path has correct file extension (unless using wildcard for multi-file export)
     if "*" not in gcs_file_path:
         gcs_file_path = _ensure_file_extension(gcs_file_path, file_format)
+    else:
+        # For wildcard paths, verify the extension matches the format
+        path_format = _get_file_format(gcs_file_path)
+        if path_format != file_format:
+            print(
+                f"WARNING: Wildcard path format '{path_format}' doesn't match file_format '{file_format}'."
+            )
+            print(
+                f"BigQuery will export in '{path_format}' format based on the file extension."
+            )
 
     ## Create extract job config
     extract_config = bigquery.ExtractJobConfig()
+
+    ## Set destination format
+    format_map = {
+        "csv": bigquery.DestinationFormat.CSV,
+        "json": bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON,
+        "parquet": bigquery.DestinationFormat.PARQUET,
+        "avro": bigquery.DestinationFormat.AVRO,
+    }
+    extract_config.destination_format = format_map.get(
+        file_format, bigquery.DestinationFormat.CSV
+    )
 
     ## Apply additional kwargs to extract config
     for key, value in kwargs.items():
@@ -364,6 +390,9 @@ def bigquery_to_gcs(
             setattr(extract_config, key, value)
 
     ## Create and run extract job
+    print(f"Exporting to: {gcs_file_path}")
+    print(f"Format (from extension): {_get_file_format(gcs_file_path)}")
+
     extract_job = bq_client.extract_table(
         table_id, gcs_file_path, job_config=extract_config
     )
@@ -379,6 +408,7 @@ def gcs_to_bigquery(
     table_id,
     file_format=None,
     write_disposition="WRITE_TRUNCATE",
+    autodetect=True,
     bq_client=None,
     **kwargs,
 ):
@@ -387,11 +417,14 @@ def gcs_to_bigquery(
 
     Parameters:
     gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
+                        Can use wildcards for multiple files: 'gs://bucket/path/file-*.csv'
     project_id:         str. GCP project ID.
     dataset_id:         str. BigQuery dataset ID.
     table_id:           str. BigQuery table ID.
     file_format:        str. File format (csv, json, parquet, avro). If None, inferred from file extension.
+                        IMPORTANT: Must match the actual file content format, not just the extension.
     write_disposition:  str. Write disposition (WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY). Default 'WRITE_TRUNCATE'.
+    autodetect:         bool. Auto-detect schema from data (useful for CSV). Default True.
     bq_client:          google.cloud.bigquery.Client. Optional. BigQuery client.
     **kwargs:           Additional arguments for load_table_from_uri job.
 
@@ -403,24 +436,30 @@ def gcs_to_bigquery(
 
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
+    file_format = file_format.lower()
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
     ## Create load job config
     load_config = bigquery.LoadJobConfig()
-    load_config.source_format = (
-        bigquery.SourceFormat.CSV
-        if file_format == "csv"
-        else (
-            bigquery.SourceFormat.JSON
-            if file_format == "json"
-            else (
-                bigquery.SourceFormat.PARQUET
-                if file_format == "parquet"
-                else bigquery.SourceFormat.AVRO
-            )
-        )
-    )
+
+    ## Set source format
+    format_map = {
+        "csv": bigquery.SourceFormat.CSV,
+        "json": bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        "parquet": bigquery.SourceFormat.PARQUET,
+        "avro": bigquery.SourceFormat.AVRO,
+    }
+    load_config.source_format = format_map.get(file_format, bigquery.SourceFormat.CSV)
+
+    ## Skip leading rows
+    if file_format == "csv":
+        load_config.skip_leading_rows = (
+            0 if autodetect else 1
+        )  # If autodetect is True, don't skip the first row so BigQuery can use it for column names
+
+    ## Set autodetect for schema inference (especially useful for CSV)
+    load_config.autodetect = autodetect
 
     ## Convert string write_disposition to enum if needed
     if isinstance(write_disposition, str):
@@ -440,20 +479,10 @@ def gcs_to_bigquery(
             setattr(load_config, key, value)
 
     # Create and run load job
-    try:
-        load_job = bq_client.load_table_from_uri(
-            gcs_file_path, table_id, job_config=load_config
-        )
-        load_job.result()
-    except Exception as e:
-        # Provide helpful error message if format mismatch is likely
-        error_msg = str(e)
-        if "not in" in error_msg and "format" in error_msg.lower():
-            raise ValueError(
-                f"File format mismatch: The file at {gcs_file_path} is not in {file_format.upper()} format. "
-                f"Please ensure the file format matches the file extension or explicitly specify the correct format."
-            ) from e
-        raise
+    load_job = bq_client.load_table_from_uri(
+        gcs_file_path, table_id, job_config=load_config
+    )
+    load_job.result()
 
     return load_job
 
