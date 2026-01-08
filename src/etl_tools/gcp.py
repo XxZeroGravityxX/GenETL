@@ -17,11 +17,11 @@ def _parse_gcs_path(gcs_file_path):
     Parse GCS file path and extract bucket name and blob path.
 
     Parameters:
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file'.
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file'.
 
-    Output:
-    bucket_name:        str. GCS bucket name.
-    blob_path:          str. Blob path within the bucket.
+    Returns:
+        bucket_name: str. GCS bucket name.
+        blob_path: str. Blob path within the bucket.
     """
     if not gcs_file_path.startswith("gs://"):
         raise ValueError(
@@ -40,10 +40,10 @@ def _get_file_format(gcs_file_path):
     Extract file format from GCS file path.
 
     Parameters:
-    gcs_file_path:      str. GCS file path, can include wildcards (e.g., 'gs://bucket/path/file-*.parquet').
+        gcs_file_path: str. GCS file path, can include wildcards (e.g., 'gs://bucket/path/file-*.parquet').
 
-    Output:
-    file_format:        str. File format (csv, json, parquet, etc.).
+    Returns:
+        file_format: str. File format (csv, json, parquet, etc.).
     """
     # Remove wildcard patterns to get the actual extension
     clean_path = gcs_file_path.replace("*", "")
@@ -55,10 +55,10 @@ def _get_content_type(file_format):
     Map file format to MIME content type.
 
     Parameters:
-    file_format:        str. File format.
+        file_format: str. File format.
 
-    Output:
-    content_type:       str. MIME content type.
+    Returns:
+        content_type: str. MIME content type.
     """
     content_type_map = {
         "csv": "text/csv",
@@ -75,11 +75,11 @@ def _ensure_file_extension(gcs_file_path, file_format):
     Ensure GCS file path has the correct extension for the file format.
 
     Parameters:
-    gcs_file_path:      str. GCS file path.
-    file_format:        str. File format (csv, json, parquet, avro).
+        gcs_file_path: str. GCS file path.
+        file_format: str. File format (csv, json, parquet, avro).
 
-    Output:
-    gcs_file_path:      str. GCS file path with correct extension.
+    Returns:
+        gcs_file_path: str. GCS file path with correct extension.
     """
     extension_map = {
         "csv": ".csv",
@@ -115,16 +115,16 @@ def gcs_upload_file(
     Generalized function to upload data to GCS bucket.
 
     Parameters:
-    data:               pd.DataFrame or dict or bytes. Data to upload.
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
-    client:             google.cloud.storage.Client. Optional. GCS storage client.
-    file_format:        str. File format (csv, json, parquet, xlsx). If None, inferred from file extension.
-    encoding:           str. Encoding to use. Default 'utf-8'.
-    **kwargs:           Additional arguments (sep, index for CSV; orient for JSON; etc.).
+        data: pd.DataFrame or dict or bytes. Data to upload.
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
+        client: google.cloud.storage.Client. Optional. GCS storage client.
+        file_format: str. File format (csv, json, parquet, xlsx). If None, inferred from file extension.
+        encoding: str. Encoding to use. Default 'utf-8'.
+        **kwargs: Additional arguments (sep, index for CSV; orient for JSON; etc.).
 
-    Output:
-    result:             dict. Dictionary containing upload information including file_path, bucket, blob,
-                        file_size_bytes, file_format, and status.
+    Returns:
+        result: dict. Dictionary containing upload information including file_path, bucket, blob,
+                file_size_bytes, file_format, and status.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -204,15 +204,15 @@ def gcs_download_file(
     Generalized function to download files from GCS bucket.
 
     Parameters:
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
-    client:             google.cloud.storage.Client. Optional. GCS storage client.
-    file_format:        str. File format (csv, json, parquet, xlsx). If None, inferred from file extension.
-    return_bytes:       bool. If True, return raw bytes instead of parsed data. Default False.
-    **kwargs:           Additional arguments (passed to pandas read functions).
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
+        client: google.cloud.storage.Client. Optional. GCS storage client.
+        file_format: str. File format (csv, json, parquet, xlsx). If None, inferred from file extension.
+        return_bytes: bool. If True, return raw bytes instead of parsed data. Default False.
+        **kwargs: Additional arguments (passed to pandas read functions).
 
-    Output:
-    result:             dict. Dictionary containing the data and metadata including data, file_path, bucket,
-                        blob, file_size_bytes, file_format, and return_type.
+    Returns:
+        result: dict. Dictionary containing the data and metadata including data, file_path, bucket,
+                blob, file_size_bytes, file_format, and return_type.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -286,12 +286,12 @@ def gcs_delete_files(
     Delete files from GCS bucket recursively.
 
     Parameters:
-    gcs_path:           str. GCS path in format 'gs://bucket-name/path/to/folder/' or 'gs://bucket-name/path/to/file.ext'.
-    client:             google.cloud.storage.Client. Optional. GCS storage client.
-    prefix_match:       str. Optional. Delete only files matching this prefix within the gcs_path.
+        gcs_path: str. GCS path in format 'gs://bucket-name/path/to/folder/' or 'gs://bucket-name/path/to/file.ext'.
+        client: google.cloud.storage.Client. Optional. GCS storage client.
+        prefix_match: str. Optional. Delete only files matching this prefix within the gcs_path.
 
-    Output:
-    deleted_count:      int. Number of files deleted.
+    Returns:
+        deleted_count: int. Number of files deleted.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_path)
@@ -338,17 +338,17 @@ def bigquery_to_gcs(
     Export data from a BigQuery table to GCS.
 
     Parameters:
-    project_id:         str. GCP project ID.
-    dataset_id:         str. BigQuery dataset ID.
-    table_id:           str. BigQuery table ID.
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
-                        For parquet/avro with multiple files, use wildcard: 'gs://bucket/path/file-*.parquet'
-    file_format:        str. Export format (csv, json, parquet, avro). Default 'csv'.
-    bq_client:          google.cloud.bigquery.Client. Optional. BigQuery client.
-    **kwargs:           Additional arguments for extract_table job (e.g., compression, field_delimiter).
+        project_id: str. GCP project ID.
+        dataset_id: str. BigQuery dataset ID.
+        table_id: str. BigQuery table ID.
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
+                       For parquet/avro with multiple files, use wildcard: 'gs://bucket/path/file-*.parquet'
+        file_format: str. Export format (csv, json, parquet, avro). Default 'csv'.
+        bq_client: google.cloud.bigquery.Client. Optional. BigQuery client.
+        **kwargs: Additional arguments for extract_table job (e.g., compression, field_delimiter).
 
-    Output:
-    job:                google.cloud.bigquery.ExtractJob. BigQuery extract job result.
+    Returns:
+        job: google.cloud.bigquery.ExtractJob. BigQuery extract job result.
     """
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
@@ -416,20 +416,20 @@ def gcs_to_bigquery(
     Import data from GCS to a BigQuery table.
 
     Parameters:
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
-                        Can use wildcards for multiple files: 'gs://bucket/path/file-*.csv'
-    project_id:         str. GCP project ID.
-    dataset_id:         str. BigQuery dataset ID.
-    table_id:           str. BigQuery table ID.
-    file_format:        str. File format (csv, json, parquet, avro). If None, inferred from file extension.
-                        IMPORTANT: Must match the actual file content format, not just the extension.
-    write_disposition:  str. Write disposition (WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY). Default 'WRITE_TRUNCATE'.
-    autodetect:         bool. Auto-detect schema from data (useful for CSV). Default True.
-    bq_client:          google.cloud.bigquery.Client. Optional. BigQuery client.
-    **kwargs:           Additional arguments for load_table_from_uri job.
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file.ext'.
+                       Can use wildcards for multiple files: 'gs://bucket/path/file-*.csv'
+        project_id: str. GCP project ID.
+        dataset_id: str. BigQuery dataset ID.
+        table_id: str. BigQuery table ID.
+        file_format: str. File format (csv, json, parquet, avro). If None, inferred from file extension.
+                    IMPORTANT: Must match the actual file content format, not just the extension.
+        write_disposition: str. Write disposition (WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY). Default 'WRITE_TRUNCATE'.
+        autodetect: bool. Auto-detect schema from data (useful for CSV). Default True.
+        bq_client: google.cloud.bigquery.Client. Optional. BigQuery client.
+        **kwargs: Additional arguments for load_table_from_uri job.
 
-    Output:
-    job:                google.cloud.bigquery.LoadJob. BigQuery load job.
+    Returns:
+        job: google.cloud.bigquery.LoadJob. BigQuery load job.
     """
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
@@ -506,18 +506,18 @@ def cloud_sql_to_gcs(
     Export data from a Cloud SQL database to GCS using Cloud SQL Admin API.
 
     Parameters:
-    project_id:         str. GCP project ID.
-    instance_id:        str. Cloud SQL instance ID.
-    database:           str. Database name to export.
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.sql' or 'gs://bucket-name/path/to/file.csv'.
-    file_type:          str. Export format ('SQL' or 'CSV'). Default 'SQL'.
-    wait_for_completion:bool. Whether to wait for the operation to complete. Default True.
-    poll_interval:      int. Seconds to wait between status checks. Default 5.
-    **kwargs:           Additional arguments for export context (e.g., offload, csvExportOptions).
+        project_id: str. GCP project ID.
+        instance_id: str. Cloud SQL instance ID.
+        database: str. Database name to export.
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file.sql' or 'gs://bucket-name/path/to/file.csv'.
+        file_type: str. Export format ('SQL' or 'CSV'). Default 'SQL'.
+        wait_for_completion: bool. Whether to wait for the operation to complete. Default True.
+        poll_interval: int. Seconds to wait between status checks. Default 5.
+        **kwargs: Additional arguments for export context (e.g., offload, csvExportOptions).
 
-    Output:
-    result:             dict. Dictionary containing operation details including operation_id, operation_type,
-                        status, instance, database, destination, file_type, and operation_response.
+    Returns:
+        result: dict. Dictionary containing operation details including operation_id, operation_type,
+                status, instance, database, destination, file_type, and operation_response.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)
@@ -591,18 +591,18 @@ def gcs_to_cloud_sql(
     Import data from GCS to a Cloud SQL database using Cloud SQL Admin API.
 
     Parameters:
-    gcs_file_path:      str. GCS file path in format 'gs://bucket-name/path/to/file.sql' or 'gs://bucket-name/path/to/file.csv'.
-    project_id:         str. GCP project ID.
-    instance_id:        str. Cloud SQL instance ID.
-    database:           str. Database name to import into.
-    file_type:          str. Import format ('SQL' or 'CSV'). Default 'SQL'.
-    wait_for_completion:bool. Whether to wait for the operation to complete. Default True.
-    poll_interval:      int. Seconds to wait between status checks. Default 5.
-    **kwargs:           Additional arguments for import context (e.g., csvImportOptions, sqlImportOptions).
+        gcs_file_path: str. GCS file path in format 'gs://bucket-name/path/to/file.sql' or 'gs://bucket-name/path/to/file.csv'.
+        project_id: str. GCP project ID.
+        instance_id: str. Cloud SQL instance ID.
+        database: str. Database name to import into.
+        file_type: str. Import format ('SQL' or 'CSV'). Default 'SQL'.
+        wait_for_completion: bool. Whether to wait for the operation to complete. Default True.
+        poll_interval: int. Seconds to wait between status checks. Default 5.
+        **kwargs: Additional arguments for import context (e.g., csvImportOptions, sqlImportOptions).
 
-    Output:
-    result:             dict. Dictionary containing operation details including operation_id, operation_type,
-                        status, instance, database, source, file_type, and operation_response.
+    Returns:
+        result: dict. Dictionary containing operation details including operation_id, operation_type,
+                status, instance, database, source, file_type, and operation_response.
     """
     ## Parse GCS path
     bucket_name, blob_path = _parse_gcs_path(gcs_file_path)

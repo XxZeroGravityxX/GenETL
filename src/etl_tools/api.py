@@ -17,20 +17,19 @@ def API_request(
     """
     Make a request to an API.
 
-    Parameters
+    Parameters:
+        url: str. URL of the API.
+        headers: dict (Optional). Headers to send to the API.
+        data: dict (Optional). Data to send to the API.
+        params: dict (Optional). Parameters to send to the API.
+        json: dict (Optional). JSON data to send to the API.
+        files: list (Optional). Files to send to the API.
+        request_type: str (Optional). Type of request. The default is 'GET'.
+        timeout: Optional. Timeout for the request.
+        **kwargs: Additional arguments to pass to requests.
 
-    url : str. URL of the API.
-    headers : dict (Optional). Headers to send to the API.
-    data : dict (Optional). Data to send to the API.
-    params : dict (Optional). Parameters to send to the API.
-    json : dict (Optional). JSON data to send to the API.
-    files : list (Optional). Files to send to the API.
-    request_type : str (Optional). Type of request. The default is 'GET'.
-
-    Returns
-
-    response : dict. Response from the API (JSON).
-
+    Returns:
+        response: dict. Response from the API (JSON).
     """
 
     ## Make request to the API

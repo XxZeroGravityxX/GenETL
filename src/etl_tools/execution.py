@@ -12,11 +12,12 @@ def mk_exec_logs(file_path, file_name, process_name, output_content, show_output
     """
     Function to create/save execution log files.
 
-    file_path :     String. File path to use for saving logs.
-    file_name :     String. File name to use for log file.
-    process_name :  String. Process name.
-    output_content: String. Output content.
-    show_output :   Boolean. Show output content in console.
+    Parameters:
+        file_path: String. File path to use for saving logs.
+        file_name: String. File name to use for log file.
+        process_name: String. Process name.
+        output_content: String. Output content.
+        show_output: Boolean. Show output content in console.
     """
 
     # Set file name
@@ -64,12 +65,13 @@ def mk_texec_logs(
     """
     Function to create/save log time execution files.
 
-    file_path :     String. File path to use for saving logs.
-    file_name :     String. File name to use for log file.
-    time_val :      String. Time variable's value.
-    time_var :      String. Time variable's name.
-    obs :           String. Observations.
-    show_output :   Boolean. Show output content in console.
+    Parameters:
+        file_path: String. File path to use for saving logs.
+        file_name: String. File name to use for log file.
+        time_val: String. Time variable's value.
+        time_var: String. Time variable's name.
+        obs: String. Observations.
+        show_output: Boolean. Show output content in console.
     """
 
     # Set file name
@@ -114,12 +116,13 @@ def mk_err_logs(
     """
     Function to create/save log error files.
 
-    file_path :     String. File path to use for saving logs.
-    file_name :     String. File name to use for log file.
-    err_desc :      String. Error description.
-    err_var :       String. Error variable name.
-    mode :          String. Mode to use for log file.
-    show_output :   Boolean. Show output content in console.
+    Parameters:
+        file_path: String. File path to use for saving logs.
+        file_name: String. File name to use for log file.
+        err_desc: String. Error description.
+        err_var: String. Error variable name.
+        mode: String. Mode to use for log file.
+        show_output: Boolean. Show output content in console.
     """
 
     # Set file name
@@ -199,10 +202,12 @@ def mk_err_logs(
 
 
 def parallel_execute(applyFunc, *args, **kwargs):
-    """Function to execute function parallely.
+    """
+    Function to execute function parallely.
 
-    applyFunc :        Function. Function to apply parallely.
-    args      :        Iterable. Arguments to pass to function on each parallel execution.
+    Parameters:
+        applyFunc: Function. Function to apply parallely.
+        args: Iterable. Arguments to pass to function on each parallel execution.
     """
 
     with ProcessPoolExecutor() as executor:
@@ -220,10 +225,11 @@ def execute_script(
     """
     Function to execute an script, saving execution logs.
 
-    process_str :           String. Process to execute.
-    log_file_path :         String. File path to use for saving logs.
-    exec_log_file_name :    String. Execution log file name.
-    texec_log_file_name :   String. Time execution log file name.
+    Parameters:
+        process_str: String. Process to execute.
+        log_file_path: String. File path to use for saving logs.
+        exec_log_file_name: String. Execution log file name.
+        texec_log_file_name: String. Time execution log file name.
     """
 
     # Execute process

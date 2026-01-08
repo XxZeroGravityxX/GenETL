@@ -23,11 +23,15 @@ def s3_list_objects(
     """
     Function to list objects from S3 bucket.
 
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+
+    Returns:
+        objects_list: list. List of objects in the S3 bucket.
     """
 
     ## Create S3 session
@@ -69,11 +73,15 @@ def s3_get_object(
     """
     Function to get object from S3 bucket.
 
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+
+    Returns:
+        content_object: dict. The S3 object response.
     """
 
     ## Create S3 session
@@ -101,12 +109,13 @@ def s3_put_object(
     """
     Function to put object on S3 bucket.
 
-    s3_body_content:                bytes. Content to be uploaded to S3.
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        s3_body_content: bytes. Content to be uploaded to S3.
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
     """
 
     ## Create S3 session
@@ -135,13 +144,17 @@ def s3_read_file(
     """
     Function to read .csv or .json file from S3 bucket.
 
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
-    encoding:                       str. Encoding to use for reading the file.
-    file_type:                      str. Type of file to read ("csv" or "plain"). Default "plain".
+    Parameters:
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+        encoding: str. Encoding to use for reading the file.
+        file_type: str. Type of file to read ("csv" or "plain"). Default "plain".
+
+    Returns:
+        file_content: BytesIO or str. Content of the file.
     """
 
     # Get content object
@@ -173,11 +186,16 @@ def s3_read_json(
     """
     Function to read json from S3 bucket.
 
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the json file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the json file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+        encoding: str. Encoding to use for reading the file.
+
+    Returns:
+        json_content: dict. JSON content from the file.
     """
 
     # Read S3 file
@@ -208,12 +226,14 @@ def s3_write_json(
     """
     Function to write json to S3 bucket.
 
-    json_data:                      dict. Data to be written to json file.
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the json file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        json_data: dict. Data to be written to json file.
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the json file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+        encoding: str. Encoding to use for writing the file.
     """
 
     # Set and encode data
@@ -242,12 +262,16 @@ def s3_read_csv(
     """
     Function to read csv from S3 bucket.
 
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the csv file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
-    kwargs:                         dict. Keyword arguments to pass to pd.read_csv.
+    Parameters:
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the csv file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+        **kwargs: Additional keyword arguments to pass to pd.read_csv.
+
+    Returns:
+        csv_content: pd.DataFrame. CSV content as a DataFrame.
     """
 
     # Read S3 file
@@ -277,12 +301,13 @@ def s3_write_parquet(
     """
     Function to write DataFrame to .parquet in S3 bucket.
 
-    data:                           pd.DataFrame. Data to be written to .parquet file.
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_path:                        str. Path to the .parquet file in the S3 bucket (relative to root).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        data: pd.DataFrame. Data to be written to .parquet file.
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_path: str. Path to the .parquet file in the S3 bucket (relative to root).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
     """
 
     # Set and encode data
@@ -309,11 +334,15 @@ def s3_read_pkl(
     """
     Function to read pickle file from S3.
 
-    s3_bucket_name:                 str. Name of the S3 bucket without "s3://" prefix.
-    s3_pickle_path:                 str. Path to the pickle file in the S3 bucket (relative to bucket).
-    aws_access_key:                 str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:          str. Name of the environment variable with the AWS secret access key.
-    region_name:                    str. Name of the AWS region to use.
+    Parameters:
+        s3_bucket_name: str. Name of the S3 bucket without "s3://" prefix.
+        s3_pickle_path: str. Path to the pickle file in the S3 bucket (relative to bucket).
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+
+    Returns:
+        pickle_object: object. Unpickled Python object.
     """
     # Download from S3
     pkl_file = (
@@ -346,14 +375,15 @@ def s3_upload_csv(
     """
     Function to upload data as CSV to S3 bucket.
 
-    data:                   pd.DataFrame. Data to upload.
-    s3_file_path:           str. S3 file path.
-    aws_access_key:         str. Name of the environment variable with the AWS access key.
-    aws_secret_access_key:  str. Name of the environment variable with the AWS secret access key.
-    region_name:            str. Name of the AWS region to use.
-    sep:                    str. Separator to use for CSV data.
-    index:                  bool. Whether to include the index in the file.
-    encoding:               str. Encoding to use.
+    Parameters:
+        data: pd.DataFrame. Data to upload.
+        s3_file_path: str. S3 file path.
+        aws_access_key: str. Name of the environment variable with the AWS access key.
+        aws_secret_access_key: str. Name of the environment variable with the AWS secret access key.
+        region_name: str. Name of the AWS region to use.
+        sep: str. Separator to use for CSV data.
+        index: bool. Whether to include the index in the file.
+        encoding: str. Encoding to use.
     """
 
     # Create S3 session
@@ -385,6 +415,16 @@ def dynamodb_read_data(
 ):
     """
     Function to read data from DynamoDB.
+
+    Parameters:
+        table_name: str. Name of the DynamoDB table.
+        aws_access_key_id: str. AWS access key ID.
+        aws_secret_access_key: str. AWS secret access key.
+        region_name: str. AWS region name.
+        **kwargs: Additional arguments for DynamoDB scan operations.
+
+    Returns:
+        data: list. List of items from the DynamoDB table.
     """
 
     # Set resource
@@ -425,13 +465,12 @@ def dynamodb_upload_data(
     Function to upload data to DynamoDB.
 
     Parameters:
-
-    data:                       pd.DataFrame or list. Data to upload.
-    table_name:                 str. Name of the DynamoDB table.
-    aws_access_key_id:          str. AWS access key ID.
-    aws_secret_access_key:      str. AWS secret access key.
-    region_name:                str. AWS region name.
-    **kwargs:                   Additional arguments for DynamoDB operations.
+        data: pd.DataFrame or list. Data to upload.
+        table_name: str. Name of the DynamoDB table.
+        aws_access_key_id: str. AWS access key ID.
+        aws_secret_access_key: str. AWS secret access key.
+        region_name: str. AWS region name.
+        **kwargs: Additional arguments for DynamoDB operations.
     """
 
     # Set resource

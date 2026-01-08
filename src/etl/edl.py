@@ -25,40 +25,39 @@ class ExtractDeleteAndLoad(object):
         Class constructor.
 
         Parameters:
-
-        config_dict :           dict. Configuration dictionary with connection and data parameters. Should/could have
-                                the following keys for each process:
-                                    - <process_name>_connections_dict
-                                    - <process_name>_extra_vars_dict
-                                    - <process_name>_sql_stmts_dict
-                                    - <process_name>_tables_dict
-                                    - <process_name>_dynamodb_kwargs_dict
-                                    - <process_name>_urls_dict
-                                    - <process_name>_headers_dict
-                                    - <process_name>_params_dict
-                                    - <process_name>_datas_dict
-                                    - <process_name>_jsons_dict
-                                    - <process_name>_request_types_dict
-        conn_dict :             dict. Connection dictionary with connection information. Should/could have
-                                the following keys for each connection:
-                                    - oracle_client_dir
-                                    - server
-                                    - database
-                                    - username
-                                    - password
-                                    - charset
-                                    - encoding
-                                    - location
-                                    - engine_prefix
-                                    - port
-                                    - sslmode
-                                    - driver
-                                    - url
-                                    - key
-                                    - secret
-        sqlalchemy_dict :       dict. Dictionary with sqlalchemy data types.
-        globals_dict :          dict. Global variables dictionary.
-        locals_dict :           dict. Local variables dictionary.
+            config_dict: dict. Configuration dictionary with connection and data parameters. Should/could have
+                        the following keys for each process:
+                            - <process_name>_connections_dict
+                            - <process_name>_extra_vars_dict
+                            - <process_name>_sql_stmts_dict
+                            - <process_name>_tables_dict
+                            - <process_name>_dynamodb_kwargs_dict
+                            - <process_name>_urls_dict
+                            - <process_name>_headers_dict
+                            - <process_name>_params_dict
+                            - <process_name>_datas_dict
+                            - <process_name>_jsons_dict
+                            - <process_name>_request_types_dict
+            conn_dict: dict. Connection dictionary with connection information. Should/could have
+                       the following keys for each connection:
+                           - oracle_client_dir
+                           - server
+                           - database
+                           - username
+                           - password
+                           - charset
+                           - encoding
+                           - location
+                           - engine_prefix
+                           - port
+                           - sslmode
+                           - driver
+                           - url
+                           - key
+                           - secret
+            sqlalchemy_dict: dict. Dictionary with sqlalchemy data types.
+            globals_dict: dict. Global variables dictionary.
+            locals_dict: dict. Local variables dictionary.
         """
 
         # Set class parameters
@@ -117,8 +116,7 @@ class ExtractDeleteAndLoad(object):
         Function to delete data from the source.
 
         Parameters:
-
-        kwargs : dict. Keyword arguments to pass to the delete statement.
+            kwargs: dict. Keyword arguments to pass to the delete statement.
         """
 
         ## Check if delete configurations are set
@@ -395,8 +393,7 @@ class ExtractDeleteAndLoad(object):
         Function to upload data to the target.
 
         Parameters:
-
-        data_to_upload : list. List with data to upload.
+            data_to_upload: list. List with data to upload.
         """
 
         ## Check if upload configurations are set

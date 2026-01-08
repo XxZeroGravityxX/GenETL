@@ -24,18 +24,16 @@ def create_sqlalchemy_engine(
     **kwargs,
 ):
     """
-    Function to create sqlalchemy enginefrom connection dictionary.
+    Function to create sqlalchemy engine from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+                   Must contain a custom connection string "custom_conn_str", or,
+                   "engine_prefix", "username", "password", "server", "port" and "database" to create it.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-                                Must contain a custom connection string "custom_conn_str", or,
-                                "engine_prefix", "username", "password", "server", "port" and "database" to create it.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    engine :                    Sqlalchemy engine.
+    Returns:
+        engine: Sqlalchemy engine.
     """
 
     # Create custom connection string
@@ -84,13 +82,11 @@ def create_bigquery_engine(conn_dict: dict, **kwargs):
     Function to create bigquery engine from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    engine :                    Bigquery engine.
+    Returns:
+        engine: Bigquery engine.
     """
 
     # Set extra parameters for connection
@@ -146,13 +142,11 @@ def create_redshift_engine(conn_dict: dict, **kwargs):
     Function to create redshift engine from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    engine :                    Redshift engine.
+    Returns:
+        engine: Redshift engine.
     """
 
     # Set extra configuration for connection
@@ -225,13 +219,11 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
     Function to create oracle engine from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    engine :                    Oracle engine.
+    Returns:
+        engine: Oracle engine.
     """
 
     # Start oracle client
@@ -310,13 +302,11 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     Function to create mysql engine from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    engine :                    Mysql engine.
+    Returns:
+        engine: Mysql engine.
     """
 
     # Set extra configuration for connection
@@ -390,14 +380,12 @@ def create_sqlalchemy_conn(conn_dict: dict, custom_conn_str=None, **kwargs):
     Function to create sqlalchemy connector from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        custom_conn_str: String with custom connection string.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    custom_conn_str :           String with custom connection string.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    conn :                      Sqlalchemy connector.
+    Returns:
+        conn: Sqlalchemy connector.
     """
     # Create engine
     engine = create_sqlalchemy_engine(
@@ -416,13 +404,11 @@ def create_bigquery_conn(conn_dict: dict, **kwargs):
     Function to create bigquery connector from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    conn :                      Bigquery connector.
+    Returns:
+        conn: Bigquery connector.
     """
     # Create engine
     engine = create_bigquery_engine(conn_dict, **kwargs)
@@ -439,13 +425,11 @@ def create_redshift_conn(conn_dict: dict, **kwargs):
     Function to create redshift connector from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    conn :                      Redshift connector.
+    Returns:
+        conn: Redshift connector.
     """
 
     # Set extra configuration for connection
@@ -473,13 +457,11 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
     Function to create oracle connector from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    conn :                      Oracle connector.
+    Returns:
+        conn: Oracle connector.
     """
 
     # Start oracle client
@@ -519,13 +501,11 @@ def create_mysql_conn(conn_dict: dict, **kwargs):
     Function to create mysql connector from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    conn :                      Mysql connector.
+    Returns:
+        conn: Mysql connector.
     """
 
     # Set extra configuration for connection
@@ -563,13 +543,11 @@ def create_pyodbc_conn(conn_dict: dict, **kwargs):
     Function to create pyodbc connector from connection dictionary.
 
     Parameters:
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        **kwargs: Extra arguments for connection.
 
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    conn :                      Pyodbc connector.
+    Returns:
+        conn: Pyodbc connector.
     """
 
     # Set extra configuration for connection
@@ -597,17 +575,15 @@ def to_sql_executemany(data, conn_dict, schema, table_name, mode, **kwargs):
     Function to upload data to database table with sqlalchemy in parallel.
 
     Parameters:
+        data: Pandas dataframe with data to upload.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        schema: String with schema name.
+        table_name: String with table name to upload data.
+        mode: String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
+        **kwargs: Extra arguments for connection.
 
-    data :                      Pandas dataframe with data to upload.
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    schema :                    String with schema name.
-    table_name :                String with table name to upload data.
-    mode :                      String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    response_rows_affected :    Integer with number of rows inserted (should be equal to len(data)).
+    Returns:
+        response_rows_affected: Integer with number of rows inserted (should be equal to len(data)).
     """
 
     # Set mode of connection
@@ -666,17 +642,15 @@ def to_sql_redshift_spark(data, schema, table_name, conn_dict, mode="append", **
     Function to upload data to redshift with spark.
 
     Parameters:
+        data: Pandas dataframe with data to upload.
+        schema: String with schema name.
+        table_name: String with table name to upload data.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        mode: String with mode to use. Options are 'append', 'overwrite', 'ignore' and 'error'.
+        **kwargs: Extra arguments for connection.
 
-    data :                      Pandas dataframe with data to upload.
-    schema :                    String with schema name.
-    table_name :                String with table name to upload data.
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    mode :                      String with mode to use. Options are 'append', 'overwrite', 'ignore' and 'error'.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    response_rows_affected :    Integer with number of rows inserted.
+    Returns:
+        response_rows_affected: Integer with number of rows inserted.
     """
 
     # Create spark session
@@ -724,24 +698,21 @@ def parallel_to_sql(
     Function to upload data to database table with sqlalchemy in parallel.
 
     Parameters:
+        df: Pandas dataframe with data to upload.
+        table_name: String with table name to upload data.
+        schema: String with schema name.
+        mode: String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        custom_conn_str: String with custom connection string.
+        connect_args: Dictionary with extra arguments for connection.
+        chunksize: Integer with chunksize to use.
+        method: String with method to use ('multi', 'execute_many', 'spark' or 'single').
+        dtypes_dict: Dictionary with dtypes to use for upload.
+        spark_mode: String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
+        **kwargs: Extra arguments for connection.
 
-    df :                        Pandas dataframe with data to upload.
-    table_name :                String with table name to upload data.
-    engine :                    SQLAlchemy engine.
-    schema :                    String with schema name.
-    mode :                      String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    custom_conn_str :           String with custom connection string.
-    connect_args :              Dictionary with extra arguments for connection.
-    chunksize :                 Integer with chunksize to use.
-    method :                    String with method to use ('multi', 'execute_many', 'spark' or 'single').
-    dtypes_dict :               Dictionary with dtypes to use for upload.
-    spark_mode :                String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    tot_response_rows_affected : Integer with total number of rows inserted.
+    Returns:
+        tot_response_rows_affected: Integer with total number of rows inserted.
     """
 
     print("Connecting to database...")
@@ -893,16 +864,14 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
     Function to execute sql statements.
 
     Parameters:
+        sql_stmt: String with sql statement to execute.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        mode: String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb' and 'bigquery'.
+        **kwargs: Extra arguments for connection.
 
-    sql_stmt :                  String with sql statement to execute.
-    conn_dict :                 Dictionary with server, database, uid and pwd information.
-    mode :                      String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb' and 'bigquery'.
-    **kwargs :                  Extra arguments for connection.
-
-    Output:
-
-    response_rows_affected :    Integer with number of rows affected.
-    response_output :           Output/result from the executed statement (if available), None otherwise.
+    Returns:
+        response_rows_affected: Integer with number of rows affected.
+        response_output: Output/result from the executed statement (if available), None otherwise.
     """
 
     # Set mode of connection
@@ -998,20 +967,18 @@ def sql_read_data(
     Function to read sql statements.
 
     Parameters:
+        sql_stmt: SQL statement to execute.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        custom_conn_str: Custom connection string.
+        mode: Mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
+        connect_args: Custom connection argument.
+        name: Name to use for print statements.
+        max_n_try: Maximum number of tries to execute the query.
+        log_file_path: Path to use for log files.
+        **kwargs: Extra arguments for connection.
 
-    sql_stmt :            SQL statement to execute.
-    conn_dict :            Dictionary with server, database, uid and pwd information.
-    custom_conn_str :      Custom connection string.
-    mode :                 Mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
-    connect_args :         Custom connection argument.
-    name :                 Name to use for print statements.
-    max_n_try :            Maximum number of tries to execute the query.
-    log_file_path :        Path to use for log files.
-    **kwargs :             Extra arguments for connection.
-
-    Output:
-
-    df :                  Dataframe with query results.
+    Returns:
+        df: Dataframe with query results.
     """
 
     # Read data
@@ -1145,27 +1112,25 @@ def sql_upload_data(
     Function to upload data to database table with sqlalchemy.
 
     Parameters:
+        df: Dataframe to upload.
+        schema: Schema to upload data to.
+        table_name: Table name to upload data to.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        custom_conn_str: String with custom connection string.
+        mode: String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
+        connect_args: Dictionary with connection arguments.
+        name: Name to use for print statements.
+        chunksize: Integer with chunksize to use for upload.
+        method: String with method to use for upload ('multi', 'execute_many' or 'single').
+        max_n_try: Integer with maximum number of tries to upload data.
+        dtypes_dict: Dictionary with dtypes to use for upload.
+        n_jobs: Integer with number of jobs to use for parallelization.
+        spark_mode: String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
+        log_file_path: Path to use for log files.
+        **kwargs: Extra arguments for connection.
 
-    df :                    Dataframe to upload.
-    schema :                Schema to upload data to.
-    table_name :            Table name to upload data to.
-    conn_dict :             Dictionarie with server, database, uid and pwd information.
-    custom_conn_str :       String with custom connection string.
-    mode :                  String with mode to use. Options are 'pyodbc', 'redshift', 'sqlalchemy', 'oracledb', 'bigquery' and 'mysql'.
-    connect_args :          Dictionarie with connection arguments.
-    name :                  Name to use for print statements.
-    chunksize :             Integer with chunksize to use for upload.
-    method :                String with method to use for upload ('multi', 'execute_many' or 'single').
-    max_n_try :             Integer with maximum number of tries to upload data.
-    dtypes_dict :           Dictionarie with dtypes to use for upload.
-    n_jobs :                Integer with number of jobs to use for parallelization.
-    spark_mode :            String with mode to use when uploading to redshift with spark. Options are 'append', 'overwrite', 'ignore' and 'error'.
-    log_file_path :         Path to use for log files.
-    **kwargs :              Extra arguments for connection.
-
-    Output:
-
-    response_rows_affected : Integer with number of rows affected.
+    Returns:
+        response_rows_affected: Integer with number of rows affected.
     """
 
     # Set number of jobs
@@ -1332,25 +1297,23 @@ def sql_copy_data(
     Function to copy data to Redshift database from S3 bucket.
 
     Parameters:
+        s3_file_path: String with S3 file paths to copy data from.
+        schema: Schema to upload data to.
+        table_name: Table name to upload data to.
+        conn_dict: Dictionary with server, database, uid and pwd information.
+        access_key: String with access keys for S3 bucket.
+        secret_access_key: String with secret access keys for S3 bucket.
+        region: String with regions for S3 bucket.
+        delimiter: String with delimiter to use for copy command. Default is ','.
+        header_row: Integer with header row to ignore. Default is 1.
+        type_format: String with type format to use for copy command. Default is 'csv'.
+        name: Name to use for print statements.
+        max_n_try: Integer with maximum number of tries to upload data.
+        log_file_path: Path to use for log files.
+        **kwargs: Extra arguments for connection.
 
-    s3_file_path:               String with S3 file paths to copy data from.
-    schema:                     Schema to upload data to.
-    table_name:                 Table name to upload data to.
-    conn_dict:                  Dictionarie with server, database, uid and pwd information.
-    access_key:                 String with access keys for S3 bucket.
-    secret_access_key:          String with secret access keys for S3 bucket.
-    region:                     String with regions for S3 bucket.
-    delimiter:                  String with delimiter to use for copy command. Default is ','.
-    header_row:                 Integer with header row to ignore. Default is 1.
-    type_format:                String with type format to use for copy command. Default is 'csv'.
-    name:                       Name to use for print statements.
-    max_n_try:                  Integer with maximum number of tries to upload data.
-    log_file_path:              Path to use for log files.
-    **kwargs:                   Extra arguments for connection.
-
-    Output:
-
-    response_rows_affected:     Integer with number of rows affected.
+    Returns:
+        response_rows_affected: Integer with number of rows affected.
     """
 
     # Copy data
