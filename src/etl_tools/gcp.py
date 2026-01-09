@@ -332,6 +332,7 @@ def bigquery_to_gcs(
     gcs_file_path,
     file_format="csv",
     bq_client=None,
+    print_header=True,
     **kwargs,
 ):
     """
@@ -345,6 +346,8 @@ def bigquery_to_gcs(
                        For parquet/avro with multiple files, use wildcard: 'gs://bucket/path/file-*.parquet'
         file_format: str. Export format (csv, json, parquet, avro). Default 'csv'.
         bq_client: google.cloud.bigquery.Client. Optional. BigQuery client.
+        print_header: bool. Include column headers in export (CSV only). Default True.
+                      Set to False to exclude column names from CSV file.
         **kwargs: Additional arguments for extract_table job (e.g., compression, field_delimiter).
 
     Returns:
@@ -383,6 +386,10 @@ def bigquery_to_gcs(
     extract_config.destination_format = format_map.get(
         file_format, bigquery.DestinationFormat.CSV
     )
+
+    ## Set print_header for CSV format
+    if file_format.lower() == "csv":
+        extract_config.print_header = print_header
 
     ## Apply additional kwargs to extract config
     for key, value in kwargs.items():
