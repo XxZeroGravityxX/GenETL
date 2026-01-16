@@ -97,12 +97,15 @@ class ExtractDeleteAndLoad(object):
 
         # Assert class parameters
         allowed_conn_types = {
+            "sqlalchemy",
             "pyodbc",
             "redshift",
-            "sqlalchemy",
             "oracledb",
-            "bigquery",
             "mysql",
+            "postgresql",
+            "mssql",
+            "bigquery",
+            "cloudsql",
         }
         for process in self.conn_type_dict:
             for key, conn_type in self.conn_type_dict[process].items():

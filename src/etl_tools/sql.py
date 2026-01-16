@@ -375,6 +375,144 @@ def create_mysql_engine(conn_dict: dict, **kwargs):
     return engine
 
 
+def create_cloudsql_engine(conn_dict: dict, **kwargs):
+    """
+    Function to create Cloud SQL engine from connection dictionary.
+
+    Parameters:
+        conn_dict: Dictionary with Cloud SQL instance connection information.
+                   Must contain:
+                   - "instance_connection_name": String with Cloud SQL instance connection name (project:region:instance)
+                   - "database_type": String with database type ('mysql', 'postgres', etc)
+                   - "database": String with database name
+                   - "username": String with username
+                   - "password": String with password
+                   Or a custom connection string "custom_conn_str".
+        **kwargs: Extra arguments for connection. Can include:
+                   - "connector": Cloud SQL Connector instance (google.cloud.sql.connector.Connector)
+                   - "custom_conn_str": Custom connection string for SQLAlchemy fallback
+                   - "use_cloud_sql_connector": Boolean to force use of Cloud SQL Connector (default: True if connector provided)
+
+    Returns:
+        engine: SQLAlchemy engine using Cloud SQL Connector or fallback to standard SQLAlchemy connection.
+    """
+
+    # Get configuration from conn_dict and kwargs
+    instance_connection_name = conn_dict.get("instance_connection_name")
+    database_type = conn_dict.get("database_type", "mysql").lower()
+    database = conn_dict.get("database")
+    username = conn_dict.get("username")
+    password = conn_dict.get("password")
+
+    # Get connector and options from kwargs
+    connector = kwargs.get("connector")
+    use_cloud_sql_connector = kwargs.get(
+        "use_cloud_sql_connector", connector is not None
+    )
+    custom_conn_str = kwargs.get("custom_conn_str")
+
+    # Try to use Cloud SQL Connector if available
+    if use_cloud_sql_connector and connector is not None:
+        print(
+            f"Creating Cloud SQL engine for {database_type} using Cloud SQL Connector..."
+        )
+
+        ## Map database types to SQLAlchemy drivers
+        driver_map = {
+            "mysql": "pymysql",
+            "postgres": "psycopg2",
+            "mariadb": "pymysql",
+            "sqlserver": "mssql",
+            "mssql": "mssql",
+        }
+        driver = driver_map.get(database_type, database_type)
+
+        ## Create connection URL without credentials (will be handled by connector)
+        if database_type.lower() == "postgres":
+            cloudsql_conn_str = f"postgresql+psycopg2:///{database}"
+        else:
+            cloudsql_conn_str = f"{database_type}+{driver}:///{database}"
+
+        ## Create engine using Cloud SQL Connector
+        try:
+            ### Define connection function
+            def getconn():
+                return connector.connect(
+                    instance_connection_name,
+                    driver,
+                    user=username,
+                    password=password,
+                    db=database,
+                )
+
+            ### Create engine
+            engine = create_engine(
+                cloudsql_conn_str,
+                creator=getconn,
+            )
+            return engine
+        except Exception as e:
+            print(
+                f"Error creating Cloud SQL engine with connector -> {type(e)} - {e}. Falling back to SQLAlchemy..."
+            )
+
+    # Fallback to standard SQLAlchemy connection string
+    print("Using SQLAlchemy fallback for Cloud SQL connection...")
+
+    # Create default connection string if not provided
+    if custom_conn_str is None:
+        if database_type.lower() == "postgres":
+            custom_conn_str = f"postgresql+psycopg2://{username}:{password}@/cloudsql_{instance_connection_name.replace(':', '_')}/{database}"
+        else:
+            custom_conn_str = f"{database_type}+pymysql://{username}:{password}@/cloudsql_{instance_connection_name.replace(':', '_')}/{database}"
+
+    # Remove Cloud SQL specific keys from kwargs
+    new_kwargs = {
+        k: v
+        for k, v in kwargs.items()
+        if k not in ["connector", "use_cloud_sql_connector", "custom_conn_str"]
+    }
+
+    # Create engine using SQLAlchemy
+    engine = create_sqlalchemy_engine(
+        conn_dict,
+        custom_conn_str=custom_conn_str,
+        **new_kwargs,
+    )
+
+    return engine
+
+
+def create_cloudsql_conn(conn_dict: dict, **kwargs):
+    """
+    Function to create Cloud SQL connector from connection dictionary.
+
+    Parameters:
+        conn_dict: Dictionary with Cloud SQL instance connection information.
+                   Must contain:
+                   - "instance_connection_name": String with Cloud SQL instance connection name (project:region:instance)
+                   - "database_type": String with database type ('mysql', 'postgres', etc)
+                   - "database": String with database name
+                   - "username": String with username
+                   - "password": String with password
+        **kwargs: Extra arguments for connection. Can include:
+                   - "connector": Cloud SQL Connector instance (google.cloud.sql.connector.Connector)
+                   - "custom_conn_str": Custom connection string for SQLAlchemy fallback
+
+    Returns:
+        conn: Cloud SQL connector connection or SQLAlchemy connection.
+    """
+
+    # Create engine
+    engine = create_cloudsql_engine(conn_dict, **kwargs)
+
+    print("Connecting to Cloud SQL database...")
+    # Make connection
+    conn = engine.connect()
+
+    return conn
+
+
 def create_sqlalchemy_conn(conn_dict: dict, custom_conn_str=None, **kwargs):
     """
     Function to create sqlalchemy connector from connection dictionary.
