@@ -420,18 +420,15 @@ def create_cloudsql_engine(conn_dict: dict, **kwargs):
         ## Map database types to SQLAlchemy drivers
         driver_map = {
             "mysql": "pymysql",
-            "postgres": "psycopg2",
+            "postgres": "pg8000",
             "mariadb": "pymysql",
-            "sqlserver": "mssql",
-            "mssql": "mssql",
+            "sqlserver": "pytds",
+            "mssql": "pytds",
         }
         driver = driver_map.get(database_type, database_type)
 
         ## Create connection URL without credentials (will be handled by connector)
-        if database_type.lower() == "postgres":
-            cloudsql_conn_str = f"postgresql+psycopg2:///{database}"
-        else:
-            cloudsql_conn_str = f"{database_type}+{driver}:///{database}"
+        cloudsql_conn_str = f"{database_type}+{driver}:///{database}"
 
         ## Create engine using Cloud SQL Connector
         try:
