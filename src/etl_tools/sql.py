@@ -417,12 +417,17 @@ def create_cloudsql_engine(conn_dict: dict, **kwargs):
             f"Creating Cloud SQL engine for {database_type} using Cloud SQL Connector..."
         )
 
+        ## Format database type (SQLAlchemy compatible)
+        if database_type == "postgres":
+            database_type = "postgresql"
+        elif database_type == "sqlserver":
+            database_type = "mssql"
+
         ## Map database types to SQLAlchemy drivers
         driver_map = {
             "mysql": "pymysql",
-            "postgres": "pg8000",
+            "postgresql": "pg8000",
             "mariadb": "pymysql",
-            "sqlserver": "pytds",
             "mssql": "pytds",
         }
         driver = driver_map.get(database_type, database_type)
