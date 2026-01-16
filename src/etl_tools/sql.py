@@ -749,6 +749,10 @@ def to_sql_executemany(data, conn_dict, schema, table_name, mode, **kwargs):
         print("Connecting to database...")
         ## Make connection
         sql_conn = create_bigquery_conn(conn_dict, **kwargs)
+    elif mode == "cloudsql":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_cloudsql_conn(conn_dict, **kwargs)
     elif mode == "mysql":
         print("Connecting to database...")
         ## Make connection
@@ -1037,6 +1041,10 @@ def sql_exec_stmt(sql_stmt, conn_dict: dict, mode="pyodbc", **kwargs):
         print("Connecting to database...")
         ## Make connection
         sql_conn = create_bigquery_conn(conn_dict, **kwargs)
+    elif mode == "cloudsql":
+        print("Connecting to database...")
+        ## Make connection
+        sql_conn = create_cloudsql_conn(conn_dict, **kwargs)
 
     print("Executing statement...")
     # Execute statment
@@ -1157,6 +1165,13 @@ def sql_read_data(
                 )
             elif mode == "bigquery":
                 engine_obj = create_bigquery_engine(
+                    conn_dict,
+                    custom_conn_str=custom_conn_str,
+                    connect_args=connect_args,
+                    **kwargs,
+                )
+            elif mode == "cloudsql":
+                engine_obj = create_cloudsql_engine(
                     conn_dict,
                     custom_conn_str=custom_conn_str,
                     connect_args=connect_args,
