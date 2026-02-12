@@ -1,4 +1,5 @@
 # Import modules
+import os
 import pandas as pd
 import json
 import time
@@ -356,6 +357,8 @@ def bigquery_to_gcs(
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
+    if file_format is None:
+        file_format = _get_file_format(gcs_file_path)
     file_format = file_format.lower()
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
@@ -413,7 +416,7 @@ def gcs_to_bigquery(
     project_id,
     dataset_id,
     table_id,
-    file_format=None,
+    file_format="csv",
     write_disposition="WRITE_TRUNCATE",
     autodetect=True,
     bq_client=None,
@@ -428,7 +431,7 @@ def gcs_to_bigquery(
         project_id: str. GCP project ID.
         dataset_id: str. BigQuery dataset ID.
         table_id: str. BigQuery table ID.
-        file_format: str. File format (csv, json, parquet, avro). If None, inferred from file extension.
+        file_format: str. File format (csv, json, parquet, avro). Default "csv".
                     IMPORTANT: Must match the actual file content format, not just the extension.
         write_disposition: str. Write disposition (WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY). Default 'WRITE_TRUNCATE'.
         autodetect: bool. Auto-detect schema from data (useful for CSV). Default True.
@@ -447,13 +450,15 @@ def gcs_to_bigquery(
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    ## Create load job config
+    # Create load job config
     load_config = bigquery.LoadJobConfig()
 
-    ## Set source format
+    # Set source format
     format_map = {
         "csv": bigquery.SourceFormat.CSV,
         "json": bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        "jsonl": bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        "ndjson": bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         "parquet": bigquery.SourceFormat.PARQUET,
         "avro": bigquery.SourceFormat.AVRO,
     }
@@ -480,7 +485,7 @@ def gcs_to_bigquery(
         )
     load_config.write_disposition = write_disposition
 
-    ## Apply additional kwargs to load config
+    # Apply additional kwargs to load config
     for key, value in kwargs.items():
         if hasattr(load_config, key):
             setattr(load_config, key, value)
