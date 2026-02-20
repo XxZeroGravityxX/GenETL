@@ -8,195 +8,237 @@ from concurrent.futures import ProcessPoolExecutor
 from colorama import Fore
 
 
-def mk_exec_logs(file_path, file_name, process_name, output_content, show_output=False):
+# Helper functions
+
+
+def _emit_log(
+    file_path: str,
+    file_name_wext: str,
+    header_lines: list[str],
+    body_lines: list[str],
+    save_logs: bool = False,
+    show_output: bool = False,
+) -> None:
+    """Helper: write header + body lines to log file and optionally print.
+
+    - Creates file with header when missing.
+    - Appends body lines when `save_logs` is True.
+    - Prints header+body when `show_output` is True.
+    """
+    # Write to file
+    if save_logs:
+        ## Create log file with header if missing
+        if file_name_wext not in os.listdir(file_path):
+            with open(f"{file_path}/{file_name_wext}", "w") as l_f:
+                for ln in header_lines:
+                    l_f.write(ln)
+        ## Append body
+        with open(f"{file_path}/{file_name_wext}", "a") as l_f:
+            for ln in body_lines:
+                l_f.write(ln)
+    # Print to console
+    if show_output:
+        print("".join(header_lines + body_lines))
+
+    pass
+
+
+# Main functions
+
+
+def mk_exec_logs(
+    file_path: str,
+    file_name: str,
+    process_name: str,
+    output_content: str,
+    show_output: bool = False,
+    save_logs: bool = False,
+) -> None:
     """
     Function to create/save execution log files.
 
+
     Parameters:
-        file_path: String. File path to use for saving logs.
-        file_name: String. File name to use for log file.
-        process_name: String. Process name.
-        output_content: String. Output content.
-        show_output: Boolean. Show output content in console.
+        file_path (str): File path to use for saving logs.
+        file_name (str): File name to use for log file.
+        process_name (str): Process name.
+        output_content (str): Output content.
+        show_output (bool): Show output content in console.
+        save_logs (bool): Save logs to file.
+
+        Returns : None
     """
 
-    # Set file name
+    # Validate parameters
+    assert (
+        isinstance(file_path, str) and file_path.strip()
+    ), "file_path must be a non-empty string"
+    assert (
+        isinstance(file_name, str) and file_name.strip()
+    ), "file_name must be a non-empty string"
+    assert (
+        isinstance(process_name, str) and process_name.strip()
+    ), "process_name must be a non-empty string"
 
+    # Set file name
     file_name_wext = f"{file_name}.log"
 
-    # Generate log file
+    # Generate log content
+    title_str = "#                    Process output                    #"
+    header_lines = [
+        "#" * len(title_str) + "\n",
+        title_str + "\n",
+        "#" * len(title_str) + "\n\n",
+    ]
+    body_lines = [
+        f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n",
+        f"Process name:\n\n {process_name}\n\n",
+        f"Output:\n\n {output_content}\n\n",
+        "------------------------------------------------------\n\n",
+    ]
 
-    ## Create log file if not in files
-    if file_name_wext not in os.listdir(file_path):
-        with open(f"{file_path}/{file_name_wext}", "w") as l_f:
-            title_str = "#                    Process output                    #"
-            l_f.write("#" * len(title_str) + "\n")
-            l_f.write(title_str + "\n")
-            l_f.write("#" * len(title_str) + "\n\n")
-    ## Append log info
-    with open(f"{file_path}/{file_name_wext}", "a") as l_f:
-        l_f.write(
-            f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n"
-        )
-        l_f.write(f"Process name:\n\n {process_name}\n\n")
-        l_f.write(f"Output:\n\n {output_content}\n\n")
-        l_f.write("------------------------------------------------------\n\n")
-
-    # Show output content
-
-    if show_output:
-        ## Show log content in console
-        title_str = "#                    Process output                    #"
-        print("#" * len(title_str) + "\n")
-        print(title_str + "\n")
-        print("#" * len(title_str) + "\n\n")
-        print(
-            f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n"
-        )
-        print(f"Process name:\n\n {process_name}\n\n")
-        print(f"Output:\n\n {output_content}\n\n")
+    # Emit log
+    _emit_log(
+        file_path, file_name_wext, header_lines, body_lines, save_logs, show_output
+    )
 
     pass
 
 
 def mk_texec_logs(
-    file_path, file_name, time_var, time_val, obs=None, show_output=False
-):
+    file_path: str,
+    file_name: str,
+    time_var: str,
+    time_val,
+    obs: str | None = None,
+    show_output: bool = False,
+    save_logs: bool = False,
+) -> None:
     """
     Function to create/save log time execution files.
 
     Parameters:
-        file_path: String. File path to use for saving logs.
-        file_name: String. File name to use for log file.
-        time_val: String. Time variable's value.
-        time_var: String. Time variable's name.
-        obs: String. Observations.
-        show_output: Boolean. Show output content in console.
+        file_path (str): File path to use for saving logs.
+        file_name (str): File name to use for log file.
+        time_var (str): Time variable's name.
+        time_val (str): Time variable's value.
+        obs (str): Observations.
+        show_output (bool): Show output content in console.
+
+    Returns: None
     """
 
+    # Validate parameters
+    assert (
+        isinstance(file_path, str) and file_path.strip()
+    ), "file_path must be a non-empty string"
+    assert (
+        isinstance(file_name, str) and file_name.strip()
+    ), "file_name must be a non-empty string"
+    assert (
+        isinstance(time_var, str) and time_var.strip()
+    ), "time_var must be a non-empty string"
+
     # Set file name
+    file_name_wext = f"{file_name}.log"
 
-    file_name_wmode = f"{file_name}.log"
+    # Generate log content
+    title_str = "# Time variable          Time value          Date          Observations          #"
+    header_lines = [
+        "#" * len(title_str) + "\n",
+        title_str + "\n",
+        "#" * len(title_str) + "\n\n",
+    ]
+    body_lines = [
+        f"{time_var}          {time_val}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}          {obs}"
+        + "\n"
+    ]
 
-    # General log file
-
-    ## Create log file if not in files
-    if file_name_wmode not in os.listdir(file_path):
-        with open(f"{file_path}/{file_name_wmode}", "w") as l_f:
-            title_str = "# Time variable          Time value          Date          Observations          #"
-            l_f.write("#" * len(title_str) + "\n")
-            l_f.write(title_str + "\n")
-            l_f.write("#" * len(title_str) + "\n\n")
-    ## Append log info
-    with open(f"{file_path}/{file_name_wmode}", "a") as l_f:
-        l_f.write(
-            f"{time_var}          {time_val}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}          {obs}"
-            + "\n"
-        )
-
-    # Show output content
-
-    if show_output:
-        ## Show log content in console
-        title_str = "# Time variable          Time value          Date          Observations          #"
-        print("#" * len(title_str) + "\n")
-        print(title_str + "\n")
-        print("#" * len(title_str) + "\n\n")
-        print(
-            f"{time_var}          {time_val}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}          {obs}"
-            + "\n"
-        )
+    # Emit log
+    _emit_log(
+        file_path, file_name_wext, header_lines, body_lines, save_logs, show_output
+    )
 
     pass
 
 
 def mk_err_logs(
-    file_path, file_name, err_var, err_desc, mode="summary", show_output=False
-):
+    file_path: str,
+    file_name: str,
+    err_var: str,
+    err_desc: str,
+    mode: str = "summary",
+    show_output: bool = False,
+    save_logs: bool = False,
+) -> None:
     """
     Function to create/save log error files.
 
     Parameters:
-        file_path: String. File path to use for saving logs.
-        file_name: String. File name to use for log file.
-        err_desc: String. Error description.
-        err_var: String. Error variable name.
-        mode: String. Mode to use for log file.
-        show_output: Boolean. Show output content in console.
+        file_path (str): File path to use for saving logs.
+        file_name (str): File name to use for log file.
+        err_var (str): Error variable name.
+        err_desc (str): Error description.
+        mode (str): Mode to use for log file.
+        show_output (bool): Show output content in console.
+
+    Returns: None
     """
 
+    # Validate parameters
+    assert (
+        isinstance(file_path, str) and file_path.strip()
+    ), "file_path must be a non-empty string"
+    assert (
+        isinstance(file_name, str) and file_name.strip()
+    ), "file_name must be a non-empty string"
+    assert (
+        isinstance(err_var, str) and err_var.strip()
+    ), "err_var must be a non-empty string"
+    assert (
+        isinstance(err_desc, str) and err_desc.strip()
+    ), "err_desc must be a non-empty string"
+
     # Set file name
-
-    file_name_wmode = f"{file_name}_{mode.lower()}.log"
-
-    # Generate log file
-
+    file_name_wmode_wext = f"{file_name}_{mode.lower()}.log"
+    # Generate log content
     if mode.lower() == "summary":
-        ## General log file
-
-        ### Create log file if not in files
-        if file_name_wmode not in os.listdir(file_path):
-            with open(f"{file_path}/{file_name_wmode}", "w") as l_f:
-                title_str = "# Error variable          Error description          Date          #"
-                l_f.write("#" * len(title_str) + "\n")
-                l_f.write(title_str + "\n")
-                l_f.write("#" * len(title_str) + "\n\n")
-        ### Append log info
-        with open(f"{file_path}/{file_name_wmode}", "a") as l_f:
-            l_f.write(
-                f"{err_var}          {err_desc}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}"
-                + "\n"
-            )
-
-        ## Show output content
-
-        if show_output:
-            ## Show log content in console
-            title_str = (
-                "# Error variable          Error description          Date          #"
-            )
-            print("#" * len(title_str) + "\n")
-            print(title_str + "\n")
-            print("#" * len(title_str) + "\n\n")
-            print(
-                f"{err_var}          {err_desc}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}"
-                + "\n"
-            )
-
+        title_str = (
+            "# Error variable          Error description          Date          #"
+        )
+        header_lines = [
+            "#" * len(title_str) + "\n",
+            title_str + "\n",
+            "#" * len(title_str) + "\n\n",
+        ]
+        body_lines = [
+            f"{err_var}          {err_desc}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}"
+            + "\n"
+        ]
     elif mode.lower() == "detailed":
-        ## Detailed log file
-
-        ### Create log file if not in files
-        if file_name_wmode not in os.listdir(file_path):
-            with open(f"{file_path}/{file_name_wmode}", "w") as l_f:
-                title_str = "#                    Detailed error description                    #"
-                l_f.write("#" * len(title_str) + "\n")
-                l_f.write(title_str + "\n")
-                l_f.write("#" * len(title_str) + "\n\n")
-        ### Append log info
-        with open(f"{file_path}/{file_name_wmode}", "a") as l_f:
-            l_f.write(
-                f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n"
-            )
-            l_f.write(f"Error variable:\n\n {err_var}\n\n")
-            l_f.write(f"Error description:\n\n {err_desc}\n\n")
-            l_f.write("------------------------------------------------------\n\n")
-
-        ## Show output content
-
-        if show_output:
-            ## Show log content in console
-            title_str = (
-                "#                    Detailed error description                    #"
-            )
-            print("#" * len(title_str) + "\n")
-            print(title_str + "\n")
-            print("#" * len(title_str) + "\n\n")
-            print(
-                f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n"
-            )
-            print(f"Error variable:\n\n {err_var}\n\n")
-            print(f"Error description:\n\n {err_desc}\n\n")
+        title_str = (
+            "#                    Detailed error description                    #"
+        )
+        header_lines = [
+            "#" * len(title_str) + "\n",
+            title_str + "\n",
+            "#" * len(title_str) + "\n\n",
+        ]
+        body_lines = [
+            f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n",
+            f"Error variable:\n\n {err_var}\n\n",
+            f"Error description:\n\n {err_desc}\n\n",
+            "------------------------------------------------------\n\n",
+        ]
+    # Emit log
+    _emit_log(
+        file_path,
+        file_name_wmode_wext,
+        header_lines,
+        body_lines,
+        save_logs,
+        show_output,
+    )
 
     pass
 
@@ -221,6 +263,8 @@ def execute_script(
     log_file_path="logs",
     exec_log_file_name="exec.log",
     texec_log_file_name="txec.log",
+    show_output=False,
+    save_logs=False,
 ):
     """
     Function to execute an script, saving execution logs.
@@ -249,7 +293,16 @@ def execute_script(
         exec_log_file_name,
         f"'{process_str}'",
         r,
+        show_output=show_output,
+        save_logs=save_logs,
     )
-    mk_texec_logs(log_file_path, texec_log_file_name, f"'{process_str}'", e - s)
+    mk_texec_logs(
+        log_file_path,
+        texec_log_file_name,
+        f"'{process_str}'",
+        e - s,
+        show_output=show_output,
+        save_logs=save_logs,
+    )
 
     pass
