@@ -38,7 +38,7 @@ def _emit_log(
                 l_f.write(ln)
     # Print to console
     if show_output:
-        print("".join(header_lines + body_lines))
+        print("\n".join(header_lines + body_lines))
 
     pass
 
@@ -86,9 +86,9 @@ def mk_exec_logs(
     # Generate log content
     title_str = "#                    Process output                    #"
     header_lines = [
-        "#" * len(title_str) + "\n",
-        title_str + "\n",
-        "#" * len(title_str) + "\n\n",
+        f'\n\n{"#" * len(title_str)}',
+        title_str,
+        f'{"#" * len(title_str)}\n\n',
     ]
     body_lines = [
         f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n",
@@ -145,13 +145,12 @@ def mk_texec_logs(
     # Generate log content
     title_str = "# Time variable          Time value          Date          Observations          #"
     header_lines = [
-        "#" * len(title_str) + "\n",
-        title_str + "\n",
-        "#" * len(title_str) + "\n\n",
+        f'\n\n{"#" * len(title_str)}',
+        title_str,
+        f'{"#" * len(title_str)}\n\n',
     ]
     body_lines = [
         f"{time_var}          {time_val}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}          {obs}"
-        + "\n"
     ]
 
     # Emit log
@@ -207,22 +206,21 @@ def mk_err_logs(
             "# Error variable          Error description          Date          #"
         )
         header_lines = [
-            "#" * len(title_str) + "\n",
-            title_str + "\n",
-            "#" * len(title_str) + "\n\n",
+            f'\n\n{"#" * len(title_str)}',
+            title_str,
+            f'{"#" * len(title_str)}\n\n',
         ]
         body_lines = [
             f"{err_var}          {err_desc}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}"
-            + "\n"
         ]
     elif mode.lower() == "detailed":
         title_str = (
             "#                    Detailed error description                    #"
         )
         header_lines = [
-            "#" * len(title_str) + "\n",
-            title_str + "\n",
-            "#" * len(title_str) + "\n\n",
+            f'\n\n{"#" * len(title_str)}',
+            title_str,
+            f'{"#" * len(title_str)}\n\n',
         ]
         body_lines = [
             f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n",
