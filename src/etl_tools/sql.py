@@ -245,7 +245,6 @@ def create_oracle_engine(conn_dict: dict, **kwargs):
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
         print(f"Error starting oracle client -> {type(e)} - {e}")
-        pass
 
     # Set extra configuration for connection
 
@@ -617,7 +616,6 @@ def create_oracle_conn(conn_dict: dict, **kwargs):
             oracledb.init_oracle_client()
     except Exception as e:  # Oracle client already started or not needed
         print(f"Error starting oracle client -> {type(e)} - {e}")
-        pass
 
     # Create connector
     conn = oracledb.connect(

@@ -129,8 +129,6 @@ def s3_put_object(
     ## Set up S3 object
     s3.put_object(Body=s3_body_content, Bucket=s3_bucket_name, Key=s3_path)
 
-    pass
-
 
 def s3_read_file(
     s3_bucket_name,
@@ -248,8 +246,6 @@ def s3_write_json(
         region_name=region_name,
     )
 
-    pass
-
 
 def s3_read_csv(
     s3_bucket_name,
@@ -321,7 +317,6 @@ def s3_write_parquet(
         aws_secret_access_key,
         region_name=region_name,
     )
-    pass
 
 
 def s3_read_pkl(
@@ -401,8 +396,6 @@ def s3_upload_csv(
         index=index,
         encoding=encoding,
     )
-
-    pass
 
 
 # ============================================================================
@@ -500,5 +493,3 @@ def dynamodb_upload_data(
         ### Upload each item
         for item in items:
             batch.put_item(Item=item)
-
-    pass

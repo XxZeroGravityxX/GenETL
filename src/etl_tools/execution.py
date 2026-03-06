@@ -40,8 +40,6 @@ def _emit_log(
     if show_output:
         print("\n".join(header_lines + body_lines))
 
-    pass
-
 
 # Main functions
 
@@ -102,8 +100,6 @@ def mk_exec_logs(
         file_path, file_name_wext, header_lines, body_lines, save_logs, show_output
     )
 
-    pass
-
 
 def mk_texec_logs(
     file_path: str,
@@ -157,8 +153,6 @@ def mk_texec_logs(
     _emit_log(
         file_path, file_name_wext, header_lines, body_lines, save_logs, show_output
     )
-
-    pass
 
 
 def mk_err_logs(
@@ -238,8 +232,6 @@ def mk_err_logs(
         show_output,
     )
 
-    pass
-
 
 def parallel_execute(applyFunc, *args, **kwargs):
     """
@@ -257,7 +249,7 @@ def parallel_execute(applyFunc, *args, **kwargs):
 
 
 def execute_script(
-    process_str,
+    process_cmd_list,
     log_file_path="logs",
     exec_log_file_name="exec.log",
     texec_log_file_name="txec.log",
@@ -268,7 +260,7 @@ def execute_script(
     Function to execute an script, saving execution logs.
 
     Parameters:
-        process_str: String. Process to execute.
+        process_cmd_list: List. List-formatted process command to execute (e.g. ["ls", "-la"]).
         log_file_path: String. File path to use for saving logs.
         exec_log_file_name: String. Execution log file name.
         texec_log_file_name: String. Time execution log file name.
@@ -277,15 +269,20 @@ def execute_script(
     # Execute process
     s = dt.datetime.now()
     r = subprocess.check_output(
-        process_str,
-        shell=True,
+        process_cmd_list,
+        shell=False,
         stderr=subprocess.STDOUT,
-        universal_newlines=True,
+        text=True,
     )
     e = dt.datetime.now()
     print(f"----- Process execution duration = {Fore.GREEN}{e-s}{Fore.RESET} -----")
     # Create execution logs
+
+    ## Set process string
+    process_str = " ".join(process_cmd_list)
+    ## Create logs directory
     os.makedirs(log_file_path, exist_ok=True)
+    ## Create logs
     mk_exec_logs(
         log_file_path,
         exec_log_file_name,
@@ -302,5 +299,3 @@ def execute_script(
         show_output=show_output,
         save_logs=save_logs,
     )
-
-    pass

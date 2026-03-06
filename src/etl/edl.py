@@ -186,8 +186,6 @@ class ExtractDeleteAndLoad(object):
             except Exception as e:
                 print(f"Error deleting data: {type(e)} - {e}")
 
-        pass
-
     def truncate_data(self, **kwargs):
         """
         Function to truncate data from the source.
@@ -256,8 +254,6 @@ class ExtractDeleteAndLoad(object):
                 )
             except Exception as e:
                 print(f"Error truncating data: {type(e)} - {e}")
-
-        pass
 
     def read_data(self, **kwargs):
         """
@@ -388,8 +384,6 @@ class ExtractDeleteAndLoad(object):
 
         ## Free memory
         del data
-
-        pass
 
     def upload_data(self, data_to_upload: dict, **kwargs):
         """
@@ -538,5 +532,3 @@ class ExtractDeleteAndLoad(object):
                     )
                 },
             )
-
-        pass
