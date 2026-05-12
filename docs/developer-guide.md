@@ -64,9 +64,10 @@ build\build.bat    # Windows
 - **Imports**: standard library first, third party second, local last;
   each group separated by a blank line.
 - **Logging**: every module owns a `logger = logging.getLogger(__name__)`
-  and uses `logger.info/warning/error` instead of `print()`. The
-  configuration is performed once by the caller via
-  [`setup_logger`](../src/etl_tools/execution.py).
+  and uses `logger.info/warning/error` instead of `print()`. The host
+  application (e.g. FastAPI service) must configure root logging via
+  its own logger setup (see
+  `CAS_datascience_services/svc/ETL/app/src/main.py` line 49 for an example).
 - **Security**: never call `eval()` on configuration values. Use
   `str.format` for SQL templating and
   [`resolve_sqlalchemy_dtype`](../src/etl_tools/sql.py) for dtype
@@ -74,28 +75,24 @@ build\build.bat    # Windows
 - **Errors**: client/connector errors must be caught at the SDK boundary,
   logged with full context, and re-raised so callers can react.
 
-## Development workflow
+## Error handling
 
-1. Create a feature branch from `main`.
-2. Add/modify code under `src/`.
-3. Add or update unit tests (see [testing.md](testing.md)).
-4. Run the test suite locally.
-5. Update the relevant docs in `docs/` if behaviour or APIs changed.
-6. Bump the version in `pyproject.toml` if you publish a release.
-7. Open a pull request.
+All high-level helpers (`sql_read_data`, `sql_upload_data`, `sql_copy_data`,
+`read_data`, `upload_data`, etc.) now re-raise exceptions after logging.
+Callers should wrap these in try/except blocks to handle failures gracefully.
 
-## Configuring the logger
-
-The library never installs its own log handlers. In your entrypoint:
+Previously, these functions would retry on error and silently return empty
+results (0 rows, empty DataFrame) on final failure. Now they raise after
+exhausting retries, which allows proper error handling at the endpoint or
+application level.
 
 ```python
-from etl_tools.execution import setup_logger
+from etl import ExtractDeleteAndLoad
 
-logger = setup_logger()                       # INFO by default
-# or
-import logging
-logger = setup_logger(level=logging.DEBUG)
+edl = ExtractDeleteAndLoad(config_dict, conn_dict)
+try:
+    edl.read_data()
+except RuntimeError as e:
+    # Handle the error (log, send alert, return HTTP 500, etc.)
+    print(f"Failed to read data: {e}")
 ```
-
-Every `etl_tools.*` and `etl.*` module then routes through the same
-queue-based handler that `setup_logger` installs.

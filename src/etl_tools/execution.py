@@ -2,12 +2,9 @@
 import datetime as dt
 import functools
 import logging
-import logging.handlers
 import os
-import queue
 import subprocess
 import sys
-import threading
 
 # Import submodules
 from concurrent.futures import ProcessPoolExecutor
@@ -16,79 +13,8 @@ from concurrent.futures import ProcessPoolExecutor
 from colorama import Fore
 
 
-# Module-level logger (inherits handlers configured by setup_logger in the host app)
+# Module-level logger (inherits handlers configured by the host application)
 logger = logging.getLogger(__name__)
-
-
-# ============================================================================
-# Logger configuration
-# ============================================================================
-
-
-class _ThreadSafeStreamHandler(logging.StreamHandler):
-    """StreamHandler with explicit lock around ``emit`` for atomic writes.
-
-    Ensures concurrent logging from multiple threads/processes does not
-    produce interleaved output.
-    """
-
-    _lock = threading.Lock()
-
-    def emit(self, record):  # pragma: no cover - thin I/O wrapper
-        try:
-            with self._lock:
-                message = self.format(record)
-                self.stream.write(message + self.terminator)
-                self.stream.flush()
-        except Exception:
-            self.handleError(record)
-
-
-def setup_logger(
-    level: int = logging.INFO,
-    fmt: str = "%(asctime)s %(levelname)s %(name)s: %(message)s",
-) -> logging.Logger:
-    """
-    Configure a thread-safe root logger with atomic writes.
-
-    Uses ``QueueHandler``/``QueueListener`` so concurrent loggers do not race
-    when writing to ``stdout``. Safe to call multiple times (handlers are
-    replaced each time).
-
-    Parameters:
-        level (int): Logging level (default ``logging.INFO``).
-        fmt (str): Log message format string. Must be non-empty.
-
-    Returns:
-        logging.Logger: Configured root logger.
-    """
-    # Validate parameters
-    if not fmt:
-        raise ValueError("`fmt` argument is required and cannot be empty.")
-
-    # Clear existing handlers on the root logger
-    root_logger = logging.getLogger()
-    while root_logger.hasHandlers():
-        root_logger.handlers.pop()
-
-    # Create queue handler for non-blocking, thread-safe logging
-    log_queue: queue.Queue = queue.Queue()
-    queue_handler = logging.handlers.QueueHandler(log_queue)
-    root_logger.addHandler(queue_handler)
-
-    # Configure listener handler pointing to stdout
-    listener_handler = _ThreadSafeStreamHandler(sys.stdout)
-    listener_handler.setFormatter(logging.Formatter(fmt))
-
-    # Start queue listener to process records
-    listener = logging.handlers.QueueListener(
-        log_queue, listener_handler, respect_handler_level=True
-    )
-    listener.start()
-
-    # Apply level and return root logger
-    root_logger.setLevel(level)
-    return root_logger
 
 
 # ============================================================================

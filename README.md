@@ -63,14 +63,28 @@ Migrating from `0.0.x` to `1.0.0`:
    pass them through `download_dynamodb_kwargs_dict` as actual Python
    values.
 
-5. **Errors are no longer swallowed.** `sql_exec_stmt`,
-   BigQuery/Cloud SQL helpers, and `API_request` now re-raise after
-   logging. Wrap calls if you previously relied on silent failure.
+5. **Errors are now raised after retries are exhausted.** Previously,
+   `sql_read_data`, `sql_upload_data`, and `sql_copy_data` would return
+   empty results (0 rows, empty DataFrame) on final failure. They now
+   raise `RuntimeError` after logging, so callers can handle failures
+   gracefully:
 
-6. **Use `setup_logger` to configure logging.** Every module logs via
-   `logging.getLogger(__name__)`. Call
-   `etl_tools.execution.setup_logger()` in your entrypoint to install
-   the shared thread-safe handler.
+   ```python
+   from etl import ExtractDeleteAndLoad
+
+   edl = ExtractDeleteAndLoad(config_dict, conn_dict)
+   try:
+       edl.read_data()
+   except RuntimeError as e:
+       logger.error(f"Read failed: {e}")
+       # Handle error (e.g. send alert, return HTTP 500)
+   ```
+
+6. **Host application must configure logging.** GenETL is a library and
+   does not install log handlers. Configure logging in your application's
+   entrypoint. Every GenETL module logs via `logging.getLogger(__name__)`,
+   which inherits handlers from your root logger. See
+   `CAS_datascience_services/svc/ETL/app/src/main.py` for an example.
 
 ## Where to get it
 

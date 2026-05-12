@@ -55,6 +55,9 @@ likely abuse vectors are:
   with context, and re-raise.
 - The generic `API_request` helper now calls `raise_for_status()` and
   logs the failing body before propagating.
+- High-level SQL helpers (`sql_read_data`, `sql_upload_data`,
+  `sql_copy_data`) now raise after retries are exhausted instead of
+  silently returning empty results.
 
 ### Logging
 

@@ -942,6 +942,7 @@ def sql_read_data(
             f"sql_read_data exhausted retries for '{name}'. "
             f"Last error: {type(last_exc).__name__}: {last_exc}"
         )
+        raise last_exc
 
     return df
 
@@ -1094,6 +1095,12 @@ def sql_upload_data(
         obs=f"Shape of object = {df.shape}",
     )
 
+    if not succeeded:
+        raise RuntimeError(
+            f"sql_upload_data failed after {max_n_try} attempts for '{name}'. "
+            "Check logs for details."
+        )
+
     return response_rows_affected
 
 
@@ -1183,5 +1190,11 @@ def sql_copy_data(
         t_e - t_i,
         obs="Copy data from S3 bucket to database table",
     )
+
+    if not succeeded:
+        raise RuntimeError(
+            f"sql_copy_data failed after {max_n_try} attempts for '{name}'. "
+            "Check logs for details."
+        )
 
     return response_rows_affected
