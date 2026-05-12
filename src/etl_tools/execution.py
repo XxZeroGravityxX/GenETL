@@ -1,14 +1,99 @@
 # Import modules
 import datetime as dt
+import functools
+import logging
+import logging.handlers
 import os
+import queue
 import subprocess
+import sys
+import threading
 
 # Import submodules
 from concurrent.futures import ProcessPoolExecutor
+
+# Import third-party modules
 from colorama import Fore
 
 
+# Module-level logger (inherits handlers configured by setup_logger in the host app)
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Logger configuration
+# ============================================================================
+
+
+class _ThreadSafeStreamHandler(logging.StreamHandler):
+    """StreamHandler with explicit lock around ``emit`` for atomic writes.
+
+    Ensures concurrent logging from multiple threads/processes does not
+    produce interleaved output.
+    """
+
+    _lock = threading.Lock()
+
+    def emit(self, record):  # pragma: no cover - thin I/O wrapper
+        try:
+            with self._lock:
+                message = self.format(record)
+                self.stream.write(message + self.terminator)
+                self.stream.flush()
+        except Exception:
+            self.handleError(record)
+
+
+def setup_logger(
+    level: int = logging.INFO,
+    fmt: str = "%(asctime)s %(levelname)s %(name)s: %(message)s",
+) -> logging.Logger:
+    """
+    Configure a thread-safe root logger with atomic writes.
+
+    Uses ``QueueHandler``/``QueueListener`` so concurrent loggers do not race
+    when writing to ``stdout``. Safe to call multiple times (handlers are
+    replaced each time).
+
+    Parameters:
+        level (int): Logging level (default ``logging.INFO``).
+        fmt (str): Log message format string. Must be non-empty.
+
+    Returns:
+        logging.Logger: Configured root logger.
+    """
+    # Validate parameters
+    if not fmt:
+        raise ValueError("`fmt` argument is required and cannot be empty.")
+
+    # Clear existing handlers on the root logger
+    root_logger = logging.getLogger()
+    while root_logger.hasHandlers():
+        root_logger.handlers.pop()
+
+    # Create queue handler for non-blocking, thread-safe logging
+    log_queue: queue.Queue = queue.Queue()
+    queue_handler = logging.handlers.QueueHandler(log_queue)
+    root_logger.addHandler(queue_handler)
+
+    # Configure listener handler pointing to stdout
+    listener_handler = _ThreadSafeStreamHandler(sys.stdout)
+    listener_handler.setFormatter(logging.Formatter(fmt))
+
+    # Start queue listener to process records
+    listener = logging.handlers.QueueListener(
+        log_queue, listener_handler, respect_handler_level=True
+    )
+    listener.start()
+
+    # Apply level and return root logger
+    root_logger.setLevel(level)
+    return root_logger
+
+
+# ============================================================================
 # Helper functions
+# ============================================================================
 
 
 def _emit_log(
@@ -19,11 +104,11 @@ def _emit_log(
     save_logs: bool = False,
     show_output: bool = False,
 ) -> None:
-    """Helper: write header + body lines to log file and optionally print.
+    """Helper: write header + body lines to a log file and optionally log them.
 
-    - Creates file with header when missing.
-    - Appends body lines when `save_logs` is True.
-    - Prints header+body when `show_output` is True.
+    - Creates the file with header when missing.
+    - Appends body lines when ``save_logs`` is True.
+    - Emits header+body through the logger when ``show_output`` is True.
     """
     # Write to file
     if save_logs:
@@ -36,12 +121,40 @@ def _emit_log(
         with open(f"{file_path}/{file_name_wext}", "a") as l_f:
             for ln in body_lines:
                 l_f.write(ln)
-    # Print to console
+    # Log to console (no longer using print)
     if show_output:
-        print("\n".join(header_lines + body_lines))
+        logger.info("\n".join(header_lines + body_lines))
 
 
+# ============================================================================
 # Main functions
+# ============================================================================
+
+
+def parallel_execute(applyFunc, *args, **kwargs):
+    """
+    Execute a function in parallel using a ``ProcessPoolExecutor``.
+
+    Parameters:
+        applyFunc: Callable to apply in parallel.
+        *args: Iterables. One iterable per positional argument of ``applyFunc``.
+        **kwargs: Keyword arguments bound to ``applyFunc`` via ``functools.partial``
+                  before parallel execution.
+
+    Returns:
+        list: Results of each parallel invocation, in input order.
+    """
+    # Bind keyword arguments
+    if kwargs:
+        func = functools.partial(applyFunc, **kwargs)
+    else:
+        func = applyFunc
+
+    # Run in parallel and materialise results
+    with ProcessPoolExecutor() as executor:
+        results = list(executor.map(func, *args))
+
+    return results
 
 
 def mk_exec_logs(
@@ -53,20 +166,19 @@ def mk_exec_logs(
     save_logs: bool = False,
 ) -> None:
     """
-    Function to create/save execution log files.
-
+    Create/save execution log files.
 
     Parameters:
         file_path (str): File path to use for saving logs.
-        file_name (str): File name to use for log file.
+        file_name (str): File name to use for log file (without extension).
         process_name (str): Process name.
         output_content (str): Output content.
-        show_output (bool): Show output content in console.
+        show_output (bool): Show output content via the logger.
         save_logs (bool): Save logs to file.
 
-        Returns : None
+    Returns:
+        None
     """
-
     # Validate parameters
     assert (
         isinstance(file_path, str) and file_path.strip()
@@ -89,7 +201,7 @@ def mk_exec_logs(
         f'{"#" * len(title_str)}\n\n',
     ]
     body_lines = [
-        f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n",
+        f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(), '%Y/%m/%d %H:%M:%S')}\n\n",
         f"Process name:\n\n {process_name}\n\n",
         f"Output:\n\n {output_content}\n\n",
         "------------------------------------------------------\n\n",
@@ -111,19 +223,20 @@ def mk_texec_logs(
     save_logs: bool = False,
 ) -> None:
     """
-    Function to create/save log time execution files.
+    Create/save time-execution log files.
 
     Parameters:
         file_path (str): File path to use for saving logs.
-        file_name (str): File name to use for log file.
+        file_name (str): File name to use for log file (without extension).
         time_var (str): Time variable's name.
-        time_val (str): Time variable's value.
-        obs (str): Observations.
-        show_output (bool): Show output content in console.
+        time_val: Time variable's value (typically a ``timedelta``).
+        obs (str | None): Observations.
+        show_output (bool): Show output content via the logger.
+        save_logs (bool): Save logs to file.
 
-    Returns: None
+    Returns:
+        None
     """
-
     # Validate parameters
     assert (
         isinstance(file_path, str) and file_path.strip()
@@ -146,7 +259,8 @@ def mk_texec_logs(
         f'{"#" * len(title_str)}\n\n',
     ]
     body_lines = [
-        f"{time_var}          {time_val}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}          {obs}"
+        f"{time_var}          {time_val}          "
+        f"{dt.datetime.strftime(dt.datetime.now(), '%Y/%m/%d %H:%M:%S')}          {obs}"
     ]
 
     # Emit log
@@ -165,19 +279,20 @@ def mk_err_logs(
     save_logs: bool = False,
 ) -> None:
     """
-    Function to create/save log error files.
+    Create/save error log files.
 
     Parameters:
         file_path (str): File path to use for saving logs.
-        file_name (str): File name to use for log file.
+        file_name (str): File name to use for log file (without extension).
         err_var (str): Error variable name.
         err_desc (str): Error description.
-        mode (str): Mode to use for log file.
-        show_output (bool): Show output content in console.
+        mode (str): Mode to use for log file (``"summary"`` or ``"detailed"``).
+        show_output (bool): Show output content via the logger.
+        save_logs (bool): Save logs to file.
 
-    Returns: None
+    Returns:
+        None
     """
-
     # Validate parameters
     assert (
         isinstance(file_path, str) and file_path.strip()
@@ -194,6 +309,7 @@ def mk_err_logs(
 
     # Set file name
     file_name_wmode_wext = f"{file_name}_{mode.lower()}.log"
+
     # Generate log content
     if mode.lower() == "summary":
         title_str = (
@@ -205,7 +321,8 @@ def mk_err_logs(
             f'{"#" * len(title_str)}\n\n',
         ]
         body_lines = [
-            f"{err_var}          {err_desc}          {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}"
+            f"{err_var}          {err_desc}          "
+            f"{dt.datetime.strftime(dt.datetime.now(), '%Y/%m/%d %H:%M:%S')}"
         ]
     elif mode.lower() == "detailed":
         title_str = (
@@ -217,11 +334,16 @@ def mk_err_logs(
             f'{"#" * len(title_str)}\n\n',
         ]
         body_lines = [
-            f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(),'%Y/%m/%d %H:%M:%S')}\n\n",
+            f"Date:\n\n {dt.datetime.strftime(dt.datetime.now(), '%Y/%m/%d %H:%M:%S')}\n\n",
             f"Error variable:\n\n {err_var}\n\n",
             f"Error description:\n\n {err_desc}\n\n",
             "------------------------------------------------------\n\n",
         ]
+    else:
+        raise ValueError(
+            f"Invalid mode '{mode}'. Allowed values are: 'summary', 'detailed'."
+        )
+
     # Emit log
     _emit_log(
         file_path,
@@ -233,49 +355,51 @@ def mk_err_logs(
     )
 
 
-def parallel_execute(applyFunc, *args, **kwargs):
-    """
-    Function to execute function parallely.
-
-    Parameters:
-        applyFunc: Function. Function to apply parallely.
-        args: Iterable. Arguments to pass to function on each parallel execution.
-    """
-
-    with ProcessPoolExecutor() as executor:
-        results = executor.map(applyFunc, *args, **kwargs)
-
-    return results
-
-
 def execute_script(
     process_cmd_list,
-    log_file_path="logs",
-    exec_log_file_name="exec.log",
-    texec_log_file_name="txec.log",
-    show_output=False,
-    save_logs=False,
+    log_file_path: str = "logs",
+    exec_log_file_name: str = "exec.log",
+    texec_log_file_name: str = "txec.log",
+    show_output: bool = False,
+    save_logs: bool = False,
 ):
     """
-    Function to execute an script, saving execution logs.
+    Execute a script in a subprocess and save execution logs.
 
     Parameters:
-        process_cmd_list: List. List-formatted process command to execute (e.g. ["ls", "-la"]).
-        log_file_path: String. File path to use for saving logs.
-        exec_log_file_name: String. Execution log file name.
-        texec_log_file_name: String. Time execution log file name.
-    """
+        process_cmd_list (list[str]): List-formatted process command to execute
+                                      (e.g. ``["ls", "-la"]``). Passed with
+                                      ``shell=False`` to avoid shell-injection.
+        log_file_path (str): File path to use for saving logs.
+        exec_log_file_name (str): Execution log file name.
+        texec_log_file_name (str): Time execution log file name.
+        show_output (bool): Forwarded to ``mk_exec_logs``/``mk_texec_logs``.
+        save_logs (bool): Forwarded to ``mk_exec_logs``/``mk_texec_logs``.
 
+    Returns:
+        str: The captured stdout/stderr of the subprocess.
+    """
     # Execute process
     s = dt.datetime.now()
-    r = subprocess.check_output(
-        process_cmd_list,
-        shell=False,
-        stderr=subprocess.STDOUT,
-        text=True,
+    try:
+        r = subprocess.check_output(
+            process_cmd_list,
+            shell=False,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        # Surface non-zero exit codes through the logger and propagate
+        logger.error(
+            f"{Fore.RED}Subprocess failed (returncode={e.returncode}): "
+            f"{' '.join(process_cmd_list)}{Fore.RESET}\n{e.output}"
+        )
+        raise
+    e_t = dt.datetime.now()
+    logger.info(
+        f"----- Process execution duration = {Fore.GREEN}{e_t - s}{Fore.RESET} -----"
     )
-    e = dt.datetime.now()
-    print(f"----- Process execution duration = {Fore.GREEN}{e-s}{Fore.RESET} -----")
+
     # Create execution logs
 
     ## Set process string
@@ -295,7 +419,9 @@ def execute_script(
         log_file_path,
         texec_log_file_name,
         f"'{process_str}'",
-        e - s,
+        e_t - s,
         show_output=show_output,
         save_logs=save_logs,
     )
+
+    return r

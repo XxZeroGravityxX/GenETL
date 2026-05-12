@@ -2,6 +2,76 @@
 
 Generic ETL (**GenETL**) package for data extraction, transformation and loading. The package is designed to work with different databases and data sources, such as Oracle, Redshift, MySQL, S3, DynamoDB, etc. (more additions in the future).
 
+> **1.0.0 — security release**. This version removes every `eval()`
+> call from the library, replaces the string-based SQLAlchemy dtype
+> mapping with a class-based one, switches SQL templating to
+> `str.format`, and adds end-to-end error logging at every SDK
+> boundary. See [docs/security.md](docs/security.md) for the full
+> change list and [Breaking changes](#breaking-changes) below for a
+> migration guide.
+
+## Documentation
+
+Full documentation lives in [docs/](docs/README.md):
+
+- [Architecture](docs/architecture.md)
+- [Developer Guide](docs/developer-guide.md)
+- [Data Models](docs/data-models.md)
+- [Testing](docs/testing.md)
+- [Security](docs/security.md)
+
+## Breaking changes
+
+Migrating from `0.0.x` to `1.0.0`:
+
+1. **`sqlalchemy_dict` now expects classes, not strings.**
+
+   ```python
+   # Before
+   sqlalchemy_dict = {"varchar": "sqlalchemy.types.String"}
+
+   # After
+   import sqlalchemy
+   sqlalchemy_dict = {"varchar": sqlalchemy.String}
+   ```
+
+   The library merges your overrides on top of the default
+   [`SQLALCHEMY_DTYPES`](src/etl_tools/sql.py), so the dictionary may
+   be omitted entirely if the defaults are sufficient. Parameterised
+   specs like `"String(255)"` still work; their arguments are parsed
+   with `ast.literal_eval`.
+
+2. **`globals_dict` / `locals_dict` constructor arguments are
+   removed.** They existed only to feed `eval`. Resolve any dynamic
+   values in the caller before passing them in.
+
+3. **SQL templates use `str.format`, not `eval`.** Replace any
+   `"... '{eval(dt.datetime.now())}'"` with literal placeholders
+   populated by `*_extra_vars_dict`:
+
+   ```python
+   download_sql_stmts_dict = {
+       "orders": "SELECT * FROM raw.orders WHERE day = '{cutoff}'",
+   }
+   download_extra_vars_dict = {"orders": {"cutoff": "2026-01-01"}}
+   ```
+
+   Missing placeholders now raise `KeyError` immediately.
+
+4. **DynamoDB kwargs are no longer evaluated.** Construct
+   `boto3.dynamodb.conditions.Key`/`Attr` objects in the caller and
+   pass them through `download_dynamodb_kwargs_dict` as actual Python
+   values.
+
+5. **Errors are no longer swallowed.** `sql_exec_stmt`,
+   BigQuery/Cloud SQL helpers, and `API_request` now re-raise after
+   logging. Wrap calls if you previously relied on silent failure.
+
+6. **Use `setup_logger` to configure logging.** Every module logs via
+   `logging.getLogger(__name__)`. Call
+   `etl_tools.execution.setup_logger()` in your entrypoint to install
+   the shared thread-safe handler.
+
 ## Where to get it
 
 The source code is hosted on GitHub at: <https://github.com/XxZeroGravityxX/GenETL>. Binary installers for the latest released version are available at the [Python Package Index (PyPI)](https://pypi.org/project/GenETL)

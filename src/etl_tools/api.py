@@ -1,116 +1,103 @@
 # Import modules
-import os
+import logging
+
+# Import third-party modules
 import requests
 
 
+# Module-level logger
+logger = logging.getLogger(__name__)
+
+
+_SUPPORTED_METHODS: dict[str, callable] = {
+    "get": requests.get,
+    "post": requests.post,
+    "put": requests.put,
+    "delete": requests.delete,
+    "patch": requests.patch,
+    "head": requests.head,
+    "options": requests.options,
+}
+
+
 def API_request(
-    url,
-    headers=None,
+    url: str,
+    headers: dict | None = None,
     data=None,
-    params=None,
-    json=None,
+    params: dict | None = None,
+    json: dict | None = None,
     files=None,
-    request_type="GET",
-    timeout=None,
+    request_type: str = "GET",
+    timeout: float | None = None,
     **kwargs,
 ):
     """
-    Make a request to an API.
+    Make an HTTP request to an API and return the JSON-decoded response.
 
     Parameters:
-        url: str. URL of the API.
-        headers: dict (Optional). Headers to send to the API.
-        data: dict (Optional). Data to send to the API.
-        params: dict (Optional). Parameters to send to the API.
-        json: dict (Optional). JSON data to send to the API.
-        files: list (Optional). Files to send to the API.
-        request_type: str (Optional). Type of request. The default is 'GET'.
-        timeout: Optional. Timeout for the request.
-        **kwargs: Additional arguments to pass to requests.
+        url (str): URL of the API.
+        headers (dict | None): Headers to send.
+        data: Body payload for ``GET``/``POST``/etc.
+        params (dict | None): Query string parameters.
+        json (dict | None): JSON body (used for non-GET methods).
+        files: Files to attach.
+        request_type (str): HTTP verb. Defaults to ``"GET"``. Case insensitive.
+        timeout (float | None): Request timeout in seconds.
+        **kwargs: Additional arguments forwarded to ``requests``.
 
     Returns:
-        response: dict. Response from the API (JSON).
+        Any: JSON-decoded response body.
+
+    Raises:
+        ValueError: If ``request_type`` is not supported.
+        requests.HTTPError: If the server returned a non-2xx status.
+        requests.RequestException: For network-level failures.
     """
+    method = request_type.lower()
+    request_fn = _SUPPORTED_METHODS.get(method)
+    if request_fn is None:
+        raise ValueError(
+            f"Invalid request type: {request_type}. "
+            f"Supported: {sorted(_SUPPORTED_METHODS)}"
+        )
 
-    ## Make request to the API
-    if request_type.lower() == "get":
-        ### A GET request to the API
-        response = requests.get(
-            url=url,
-            data=data,
-            headers=headers,
-            params=params,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
-    elif request_type.lower() == "post":
-        ### A POST request to the API
-        response = requests.post(
-            url=url,
-            data=data,
-            headers=headers,
-            json=json,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
-    elif request_type.lower() == "put":
-        ### A PUT request to the API
-        response = requests.put(
-            url=url,
-            data=data,
-            headers=headers,
-            json=json,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
-    elif request_type.lower() == "delete":
-        ### A DELETE request to the API
-        response = requests.delete(
-            url=url,
-            data=data,
-            headers=headers,
-            json=json,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
-    elif request_type.lower() == "patch":
-        ### A PATCH request to the API
-        response = requests.patch(
-            url=url,
-            data=data,
-            headers=headers,
-            json=json,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
-    elif request_type.lower() == "head":
-        ### A HEAD request to the API
-        response = requests.head(
-            url=url,
-            data=data,
-            headers=headers,
-            json=json,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
-    elif request_type.lower() == "options":
-        ### A OPTIONS request to the API
-        response = requests.options(
-            url=url,
-            data=data,
-            headers=headers,
-            json=json,
-            files=files,
-            timeout=timeout,
-            **kwargs,
-        ).json()
+    # GET sends ``data`` rather than ``json`` to preserve previous behaviour
+    common_kwargs = dict(
+        url=url,
+        headers=headers,
+        params=params,
+        files=files,
+        timeout=timeout,
+        **kwargs,
+    )
+    if method == "get":
+        request_kwargs = {**common_kwargs, "data": data}
     else:
-        raise ValueError(f"Invalid request type: {request_type}")
+        request_kwargs = {**common_kwargs, "data": data, "json": json}
 
-    return response
+    try:
+        response = request_fn(**request_kwargs)
+        response.raise_for_status()
+    except requests.HTTPError as e:
+        logger.error(
+            f"API request {method.upper()} {url} failed -> "
+            f"HTTP {e.response.status_code}: {e.response.text[:500]}"
+        )
+        raise
+    except requests.RequestException as e:
+        logger.error(
+            f"API request {method.upper()} {url} failed -> "
+            f"{type(e).__name__}: {e}"
+        )
+        raise
+
+    try:
+        return response.json()
+    except ValueError:
+        # Response was not JSON; surface raw text to the caller rather than
+        # silently raising deep inside ``requests``.
+        logger.warning(
+            f"API response for {method.upper()} {url} is not JSON; "
+            "returning raw text."
+        )
+        return response.text
