@@ -26,9 +26,7 @@ from etl_tools.gcp import (
 from etl_tools.aws import (
     dynamodb_read_data,
     dynamodb_upload_data,
-    s3_download_file,
     s3_list_objects,
-    s3_upload_file,
 )
 from etl_tools.api import API_request
 
@@ -53,9 +51,7 @@ __all__ = [
     "gcs_upload_file",
     "dynamodb_read_data",
     "dynamodb_upload_data",
-    "s3_download_file",
     "s3_list_objects",
-    "s3_upload_file",
     "API_request",
 ]
 
