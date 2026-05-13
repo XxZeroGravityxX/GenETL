@@ -132,11 +132,17 @@ from etl_tools.sql import SQLALCHEMY_DTYPES
 
 ### Overriding or aliasing
 
-Provide your own mapping via `sqlalchemy_dict`. Values **must be
-SQLAlchemy type classes**, not strings:
+Provide your own mapping via `sqlalchemy_dict`. Each value may be either:
+
+* a SQLAlchemy type class / callable, or
+* a fully-qualified dotted path string rooted at `sqlalchemy`, resolved
+  safely via `resolve_sqlalchemy_path` (allow-listed `getattr` walk, no
+  `eval`/`exec`).
 
 ```python
 import sqlalchemy
+
+# Type-class form (preferred when constructing in Python).
 sqlalchemy_dict = {
     "varchar":   sqlalchemy.String,
     "timestamp": sqlalchemy.DateTime,
@@ -144,7 +150,20 @@ sqlalchemy_dict = {
     "float":     sqlalchemy.Float,
     "number":    sqlalchemy.Numeric,
 }
+
+# Dotted-path string form (typical over the wire / JSON payloads).
+sqlalchemy_dict = {
+    "varchar":   "sqlalchemy.types.String",
+    "timestamp": "sqlalchemy.types.DateTime",
+    "int":       "sqlalchemy.types.Integer",
+    "float":     "sqlalchemy.types.Float",
+    "number":    "sqlalchemy.types.Numeric",
+    "bool":      "sqlalchemy.types.Boolean",
+}
 ```
+
+Only paths whose root is in the allow-list (`{"sqlalchemy"}`) are accepted;
+private attributes (names starting with `_`) are refused.
 
 The user-supplied dictionary is merged on top of `SQLALCHEMY_DTYPES`.
 

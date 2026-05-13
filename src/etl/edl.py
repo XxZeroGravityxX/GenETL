@@ -8,6 +8,7 @@ import sqlalchemy  # noqa: F401  (re-exported for caller convenience)
 from etl_tools.sql import (
     SQLALCHEMY_DTYPES,
     resolve_sqlalchemy_dtype,
+    resolve_sqlalchemy_path,
     sql_exec_stmt,
     sql_read_data,
     sql_upload_data,
@@ -65,8 +66,12 @@ class ExtractDeleteAndLoad(object):
     .. note::
         Compared to previous versions this class no longer uses ``eval()``.
 
-        * ``sqlalchemy_dict`` must map alias names to SQLAlchemy type classes
-          (e.g. ``{"varchar": sqlalchemy.String, "int": sqlalchemy.Numeric}``).
+        * ``sqlalchemy_dict`` maps alias names to SQLAlchemy types. Each value
+          may be either a type class/callable (e.g. ``sqlalchemy.String``) or
+          a fully-qualified dotted path string rooted at ``sqlalchemy``
+          (e.g. ``"sqlalchemy.types.String"``). String values are resolved
+          safely via :func:`etl_tools.sql.resolve_sqlalchemy_path` (no
+          ``eval``/``exec``, allow-listed root only).
           A default mapping :data:`etl_tools.sql.SQLALCHEMY_DTYPES` is merged
           in (user-supplied keys take precedence).
         * Each ``<process>_extra_vars_dict`` must contain plain values. SQL
@@ -101,9 +106,12 @@ class ExtractDeleteAndLoad(object):
                     * ``<process_name>_methods_dict``
 
             conn_dict (dict | None): Mapping ``<conn_type>_<conn_name> -> conn info``.
-            sqlalchemy_dict (dict | None): User-supplied alias-to-class mapping
-                for SQLAlchemy types. Merged on top of
-                :data:`etl_tools.sql.SQLALCHEMY_DTYPES`.
+            sqlalchemy_dict (dict | None): User-supplied alias-to-type mapping
+                for SQLAlchemy types. Values may be either a type class/callable
+                or a dotted path string rooted at ``sqlalchemy``
+                (e.g. ``"sqlalchemy.types.String"``); the latter is resolved
+                via :func:`etl_tools.sql.resolve_sqlalchemy_path`. Merged on
+                top of :data:`etl_tools.sql.SQLALCHEMY_DTYPES`.
         """
         config_dict = config_dict or {}
         conn_dict = conn_dict or {}
@@ -113,18 +121,38 @@ class ExtractDeleteAndLoad(object):
         self.connections_dict = {key.lower(): val for key, val in conn_dict.items()}
         self.configs_dict = {key.lower(): val for key, val in config_dict.items()}
 
-        # Merge SQLAlchemy dtype mapping (user overrides defaults). Values must
-        # be callables/classes, never strings, to keep ``eval`` out of the picture.
+        # Merge SQLAlchemy dtype mapping (user overrides defaults).
+        #
+        # Each user-supplied value can be:
+        #   * a callable / type class -> stored as-is
+        #   * a dotted path string under an allow-listed root (e.g.
+        #     "sqlalchemy.types.String") -> resolved safely via
+        #     resolve_sqlalchemy_path (no eval/exec).
+        # Any other value is rejected.
         merged_dtypes: dict = dict(SQLALCHEMY_DTYPES)
         for k, v in sqlalchemy_dict.items():
-            if not callable(v):
+            if isinstance(v, str):
+                try:
+                    resolved = resolve_sqlalchemy_path(v)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"sqlalchemy_dict['{k}'] = {v!r} could not be resolved "
+                        f"to a SQLAlchemy type: {exc}"
+                    ) from exc
+                if not callable(resolved):
+                    raise TypeError(
+                        f"sqlalchemy_dict['{k}'] resolved from {v!r} is not a "
+                        f"callable type, got {type(resolved).__name__}."
+                    )
+                merged_dtypes[k] = resolved
+            elif callable(v):
+                merged_dtypes[k] = v
+            else:
                 raise TypeError(
-                    f"sqlalchemy_dict['{k}'] must be a SQLAlchemy type class or "
-                    f"callable, got {type(v).__name__}. "
-                    "String-form dtype names are no longer supported."
+                    f"sqlalchemy_dict['{k}'] must be a SQLAlchemy type class, "
+                    f"callable, or dotted-path string under "
+                    f"'sqlalchemy.*'; got {type(v).__name__}."
                 )
-            merged_dtypes[k] = v
-        # Keep both case-preserved and lower-cased lookup for backward UX.
         self.sqlalchemy_dtypes = merged_dtypes
 
         # Process metadata

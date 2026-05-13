@@ -9,6 +9,7 @@ from etl_tools.execution import (
 from etl_tools.sql import (
     SQLALCHEMY_DTYPES,
     resolve_sqlalchemy_dtype,
+    resolve_sqlalchemy_path,
     sql_copy_data,
     sql_exec_stmt,
     sql_read_data,
@@ -38,6 +39,7 @@ __all__ = [
     "parallel_execute",
     "SQLALCHEMY_DTYPES",
     "resolve_sqlalchemy_dtype",
+    "resolve_sqlalchemy_path",
     "sql_copy_data",
     "sql_exec_stmt",
     "sql_read_data",

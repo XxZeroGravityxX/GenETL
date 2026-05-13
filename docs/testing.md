@@ -41,7 +41,12 @@ tests/
 ### `etl.edl.ExtractDeleteAndLoad`
 
 - Constructor rejects invalid connection types.
-- Constructor rejects non-callable values in `sqlalchemy_dict`.
+- Constructor accepts dotted-path strings (e.g.
+  `"sqlalchemy.types.String"`) in `sqlalchemy_dict` and resolves them via
+  `resolve_sqlalchemy_path`.
+- Constructor rejects non-callable, non-string values in `sqlalchemy_dict`.
+- Constructor rejects dotted paths whose root is not allow-listed
+  (e.g. `"os.system"`) or that reference private attributes.
 - `read_data` / `delete_data` / `truncate_data` template SQL with
   `str.format`, raising `KeyError` for missing placeholders.
 - `read_data` propagates errors via the logger after `max_n_try`

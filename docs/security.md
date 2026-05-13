@@ -30,7 +30,7 @@ likely abuse vectors are:
 | ----------------------------------------- | -------------------------------------------- |
 | `etl.edl` SQL template `eval(stmt)`       | `str.format_map(_StrictDict(extra_vars))`    |
 | `etl.edl` extra-vars `eval(ex_val)`       | Values passed through as literals            |
-| `etl.edl` sqlalchemy dtype `eval(...)`    | [`SQLALCHEMY_DTYPES`](../src/etl_tools/sql.py) + `ast.literal_eval` |
+| `etl.edl` sqlalchemy dtype `eval(...)`    | [`SQLALCHEMY_DTYPES`](../src/etl_tools/sql.py) + `ast.literal_eval` + [`resolve_sqlalchemy_path`](../src/etl_tools/sql.py) (allow-listed `getattr` walk) |
 | `etl_tools.aws.dynamodb_read_data` `eval(val)` | Pass kwargs straight through to boto3 |
 
 ### Safer SQL dispatch

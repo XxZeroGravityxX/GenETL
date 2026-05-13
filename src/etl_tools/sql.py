@@ -1,6 +1,7 @@
 # Import modules
 import ast
 import datetime as dt
+import importlib
 import logging
 import multiprocessing
 import os
@@ -37,7 +38,13 @@ logger = logging.getLogger(__name__)
 #: This mapping replaces the previous ``eval()``-based dtype resolution. Users
 #: may extend or override entries by passing their own dictionary to
 #: :class:`etl.edl.ExtractDeleteAndLoad` via the ``sqlalchemy_dict`` argument.
-#: All values must be SQLAlchemy type classes (or callables), never strings.
+#: Values may be either:
+#:
+#: * a SQLAlchemy type class / callable (e.g. ``sqlalchemy.String``), or
+#: * a fully-qualified dotted path string rooted at an allow-listed module
+#:   (currently only ``"sqlalchemy"``), e.g. ``"sqlalchemy.types.String"``.
+#:   String values are resolved via :func:`resolve_sqlalchemy_path` using a
+#:   safe attribute walk (no ``eval``/``exec``).
 SQLALCHEMY_DTYPES: dict[str, type] = {
     # Generic types
     "BigInteger": sqlalchemy.BigInteger,
@@ -82,6 +89,67 @@ SQLALCHEMY_DTYPES: dict[str, type] = {
     "VARBINARY": sqlalchemy.VARBINARY,
     "VARCHAR": sqlalchemy.VARCHAR,
 }
+
+
+#: Module roots that :func:`resolve_sqlalchemy_path` is allowed to traverse.
+#:
+#: Keeping this set explicit prevents the resolver from being abused to import
+#: arbitrary modules from string input (e.g. ``"os.system"``).
+_ALLOWED_DTYPE_ROOTS: frozenset[str] = frozenset({"sqlalchemy"})
+
+
+def resolve_sqlalchemy_path(path: str):
+    """
+    Resolve a fully-qualified dotted path string (e.g.
+    ``"sqlalchemy.types.String"``) into the actual Python object, using a
+    safe allow-listed attribute walk.
+
+    This is the eval-free replacement for ``eval(path)``. It only accepts
+    paths whose root is listed in :data:`_ALLOWED_DTYPE_ROOTS` (currently just
+    ``"sqlalchemy"``) and refuses any private attribute access.
+
+    Parameters:
+        path (str): Dotted path rooted at an allow-listed top-level module.
+
+    Returns:
+        Any: The resolved attribute (typically a SQLAlchemy type class).
+
+    Raises:
+        ValueError: If ``path`` is not a non-empty string, its root is not
+                    allow-listed, references a private attribute, or any
+                    attribute along the path does not exist.
+    """
+    if not isinstance(path, str) or not path.strip():
+        raise ValueError(f"Invalid dotted dtype path: {path!r}")
+
+    parts = path.strip().split(".")
+    root = parts[0]
+    if root not in _ALLOWED_DTYPE_ROOTS:
+        raise ValueError(
+            f"Refusing to resolve '{path}': root '{root}' is not allow-listed. "
+            f"Allowed roots: {sorted(_ALLOWED_DTYPE_ROOTS)}"
+        )
+
+    try:
+        obj = importlib.import_module(root)
+    except ImportError as exc:  # pragma: no cover - sqlalchemy is a hard dep
+        raise ValueError(
+            f"Could not import root module '{root}' while resolving '{path}'"
+        ) from exc
+
+    for attr in parts[1:]:
+        if not attr or attr.startswith("_"):
+            raise ValueError(
+                f"Refusing private/empty attribute '{attr}' in '{path}'"
+            )
+        try:
+            obj = getattr(obj, attr)
+        except AttributeError as exc:
+            raise ValueError(
+                f"Unknown attribute '{attr}' while resolving '{path}'"
+            ) from exc
+
+    return obj
 
 
 def resolve_sqlalchemy_dtype(

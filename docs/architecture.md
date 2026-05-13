@@ -56,8 +56,11 @@ Stateful orchestrator. The constructor takes three dictionaries:
 - `conn_dict`   — connection definitions keyed by
   `<conn_type>_<conn_name>` (e.g. `sqlalchemy_oltp`, `bigquery_analytics`)
 - `sqlalchemy_dict` — optional override mapping from alias names to
-  SQLAlchemy type classes (merged on top of
-  [`SQLALCHEMY_DTYPES`](../src/etl_tools/sql.py))
+  SQLAlchemy types. Values may be type classes/callables or dotted-path
+  strings rooted at `sqlalchemy` (e.g. `"sqlalchemy.types.String"`),
+  resolved safely by
+  [`resolve_sqlalchemy_path`](../src/etl_tools/sql.py). Merged on top of
+  [`SQLALCHEMY_DTYPES`](../src/etl_tools/sql.py).
 
 It exposes four methods that operate over the corresponding
 `<process>_*` sub-dictionaries: `read_data()`, `delete_data()`,
@@ -76,7 +79,8 @@ Source: [src/etl_tools/sql.py](../src/etl_tools/sql.py)
 - **High-level helpers**: `sql_read_data`, `sql_upload_data`,
   `sql_copy_data`, `sql_exec_stmt`, `parallel_to_sql`,
   `to_sql_executemany`, `to_sql_redshift_spark`
-- **Dtype mapping**: `SQLALCHEMY_DTYPES`, `resolve_sqlalchemy_dtype`
+- **Dtype mapping**: `SQLALCHEMY_DTYPES`, `resolve_sqlalchemy_dtype`,
+  `resolve_sqlalchemy_path`
   (safe replacement for the old `eval`-based mechanism)
 
 Internal dispatch tables `_CONN_FACTORIES` and `_ENGINE_FACTORIES` make
@@ -187,6 +191,11 @@ flowchart LR
   the old `eval(stmt)` SQL templating.
 - **Safe dtype resolution** — `resolve_sqlalchemy_dtype` uses
   `ast.literal_eval` to parse only literal arguments, never code.
+- **Safe dotted-path resolution** — `resolve_sqlalchemy_path` walks
+  attributes from an allow-listed root (`sqlalchemy`) via `getattr`,
+  refusing private attributes and unknown roots; this lets callers send
+  dtype values as strings (e.g. `"sqlalchemy.types.String"`) without
+  `eval`/`exec`.
 - **Retries with logging** — `sql_read_data`, `sql_upload_data`,
   `sql_copy_data` retry up to `max_n_try` times and persist both
   summary and detailed error logs.
