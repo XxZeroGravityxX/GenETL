@@ -8,7 +8,7 @@ import sqlalchemy  # noqa: F401  (re-exported for caller convenience)
 from etl_tools.sql import (
     SQLALCHEMY_DTYPES,
     resolve_sqlalchemy_dtype,
-    resolve_sqlalchemy_path,
+    resolve_type_class,
     sql_exec_stmt,
     sql_read_data,
     sql_upload_data,
@@ -67,11 +67,12 @@ class ExtractDeleteAndLoad(object):
         Compared to previous versions this class no longer uses ``eval()``.
 
         * ``sqlalchemy_dict`` maps alias names to SQLAlchemy types. Each value
-          may be either a type class/callable (e.g. ``sqlalchemy.String``) or
-          a fully-qualified dotted path string rooted at ``sqlalchemy``
-          (e.g. ``"sqlalchemy.types.String"``). String values are resolved
-          safely via :func:`etl_tools.sql.resolve_sqlalchemy_path` (no
-          ``eval``/``exec``, allow-listed root only).
+          may be either a type class/callable (e.g. ``sqlalchemy.String``), a
+          simple mapping key (e.g. ``"String"``) or a fully-qualified dotted
+          path string rooted at ``sqlalchemy`` (e.g.
+          ``"sqlalchemy.types.String"``). String values are resolved safely
+          via :func:`etl_tools.sql.resolve_type_class` (no ``eval``/``exec``,
+          allow-listed root only).
           A default mapping :data:`etl_tools.sql.SQLALCHEMY_DTYPES` is merged
           in (user-supplied keys take precedence).
         * Each ``<process>_extra_vars_dict`` must contain plain values. SQL
@@ -107,10 +108,11 @@ class ExtractDeleteAndLoad(object):
 
             conn_dict (dict | None): Mapping ``<conn_type>_<conn_name> -> conn info``.
             sqlalchemy_dict (dict | None): User-supplied alias-to-type mapping
-                for SQLAlchemy types. Values may be either a type class/callable
-                or a dotted path string rooted at ``sqlalchemy``
-                (e.g. ``"sqlalchemy.types.String"``); the latter is resolved
-                via :func:`etl_tools.sql.resolve_sqlalchemy_path`. Merged on
+                for SQLAlchemy types. Values may be either a type class/callable,
+                a simple mapping key (e.g. ``"String"``), or a dotted path
+                string rooted at ``sqlalchemy`` (e.g.
+                ``"sqlalchemy.types.String"``); string values are resolved
+                via :func:`etl_tools.sql.resolve_type_class`. Merged on
                 top of :data:`etl_tools.sql.SQLALCHEMY_DTYPES`.
         """
         config_dict = config_dict or {}
@@ -125,15 +127,16 @@ class ExtractDeleteAndLoad(object):
         #
         # Each user-supplied value can be:
         #   * a callable / type class -> stored as-is
+        #   * a simple key (e.g. "String") -> looked up in SQLALCHEMY_DTYPES
         #   * a dotted path string under an allow-listed root (e.g.
         #     "sqlalchemy.types.String") -> resolved safely via
-        #     resolve_sqlalchemy_path (no eval/exec).
+        #     resolve_type_class (no eval/exec).
         # Any other value is rejected.
         merged_dtypes: dict = dict(SQLALCHEMY_DTYPES)
         for k, v in sqlalchemy_dict.items():
             if isinstance(v, str):
                 try:
-                    resolved = resolve_sqlalchemy_path(v)
+                    resolved = resolve_type_class(v, mapping=SQLALCHEMY_DTYPES)
                 except ValueError as exc:
                     raise ValueError(
                         f"sqlalchemy_dict['{k}'] = {v!r} could not be resolved "

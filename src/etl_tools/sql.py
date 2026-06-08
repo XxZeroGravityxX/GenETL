@@ -152,6 +152,66 @@ def resolve_sqlalchemy_path(path: str):
     return obj
 
 
+def resolve_type_class(
+    name: str,
+    mapping: dict[str, type] | None = None,
+) -> type:
+    """
+    Central resolver: turn a type name into a SQLAlchemy type **class**.
+
+    Resolution order:
+
+    1. Look up ``name`` in ``mapping`` (defaults to :data:`SQLALCHEMY_DTYPES`).
+    2. If not found and ``name`` contains a dot, attempt
+       :func:`resolve_sqlalchemy_path` (e.g. ``"sqlalchemy.types.String"``).
+    3. Otherwise raise :class:`ValueError`.
+
+    Parameters:
+        name (str): Simple key (e.g. ``"String"``) or dotted path
+                    (e.g. ``"sqlalchemy.types.String"``).
+        mapping (dict[str, type] | None): Optional override mapping. Defaults
+                    to :data:`SQLALCHEMY_DTYPES`.
+
+    Returns:
+        type: SQLAlchemy type class (not yet instantiated).
+
+    Raises:
+        ValueError: If the name cannot be resolved through any strategy.
+    """
+    if mapping is None:
+        mapping = SQLALCHEMY_DTYPES
+
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError(f"Invalid SQLAlchemy type name: {name!r}")
+
+    name = name.strip()
+
+    # 1. Mapping lookup
+    if name in mapping:
+        return mapping[name]
+
+    # 2. Dotted-path fallback
+    if "." in name:
+        try:
+            resolved = resolve_sqlalchemy_path(name)
+        except ValueError:
+            raise ValueError(
+                f"Unknown SQLAlchemy dtype '{name}'. Not found in mapping "
+                f"and could not be resolved as a dotted path. "
+                f"Available mapping keys: {sorted(mapping.keys())}"
+            )
+        if not callable(resolved):
+            raise ValueError(
+                f"Resolved path '{name}' is not a callable type class."
+            )
+        return resolved
+
+    raise ValueError(
+        f"Unknown SQLAlchemy dtype '{name}'. "
+        f"Available keys: {sorted(mapping.keys())}"
+    )
+
+
 def resolve_sqlalchemy_dtype(
     spec: str,
     mapping: dict[str, type] | None = None,
@@ -159,6 +219,10 @@ def resolve_sqlalchemy_dtype(
     """
     Resolve a string spec such as ``"String"`` or ``"String(255)"`` into a
     SQLAlchemy type instance, using a safe mapping and ``ast.literal_eval``.
+
+    The type class is resolved centrally via :func:`resolve_type_class`, which
+    supports both simple mapping keys (e.g. ``"String"``) and fully-qualified
+    dotted paths (e.g. ``"sqlalchemy.types.String"``).
 
     Parameters:
         spec (str): Dtype spec. May include parenthesised literal arguments
@@ -188,13 +252,8 @@ def resolve_sqlalchemy_dtype(
         name, args_str = spec, ""
     name = name.strip()
 
-    # Look up the type class (never eval the name)
-    if name not in mapping:
-        raise ValueError(
-            f"Unknown SQLAlchemy dtype '{name}'. "
-            f"Available keys: {sorted(mapping.keys())}"
-        )
-    type_cls = mapping[name]
+    # Resolve the type class centrally (mapping lookup + dotted-path fallback)
+    type_cls = resolve_type_class(name, mapping)
 
     # Parse positional args via ast.literal_eval (literals only, no code exec)
     if not args_str:
