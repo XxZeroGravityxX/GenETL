@@ -1,11 +1,19 @@
 # Import modules
-import numpy as np
-import pandas as pd
+import datetime as dt  # noqa: F401  (kept for backwards compatibility of public surface)
 import json
+import logging
 import pickle
+
+# Import third-party modules
 import awswrangler as aws
 import boto3
-import datetime as dt
+import numpy as np
+import pandas as pd
+from botocore.exceptions import BotoCoreError, ClientError
+
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -427,21 +435,31 @@ def dynamodb_read_data(
         aws_secret_access_key=aws_secret_access_key,
         region_name=region_name,
     )
-    ## Evaluate keyword arguments
-    kwargs_eval = {key: eval(val) for key, val in kwargs.items()}
+    # Pass kwargs through unchanged. Callers are responsible for constructing
+    # any boto3 objects (e.g. ``boto3.dynamodb.conditions.Key`` /
+    # ``Attr``) before invoking this function. We no longer ``eval()`` the
+    # values, since doing so would allow arbitrary code execution.
+    scan_kwargs = dict(kwargs)
     ## Get table
     table = dynamodb.Table(table_name)
     ## Scan table
-    scan_response = table.scan(**kwargs_eval)
-    ## Get data from table
-    data = scan_response["Items"]
-    while "LastEvaluatedKey" in scan_response:  ### Iterate over each scan response
-        ### Scan table
-        scan_response = table.scan(
-            ExclusiveStartKey=scan_response["LastEvaluatedKey"], **kwargs_eval
+    try:
+        scan_response = table.scan(**scan_kwargs)
+        ## Get data from table
+        data = scan_response["Items"]
+        while "LastEvaluatedKey" in scan_response:  ### Iterate over each scan response
+            ### Scan table
+            scan_response = table.scan(
+                ExclusiveStartKey=scan_response["LastEvaluatedKey"], **scan_kwargs
+            )
+            ### Add data
+            data.extend(scan_response["Items"])
+    except (BotoCoreError, ClientError) as e:
+        logger.error(
+            f"DynamoDB scan failed for table '{table_name}' -> "
+            f"{type(e).__name__}: {e}"
         )
-        ### Add data
-        data.extend(scan_response["Items"])
+        raise
 
     return data
 
@@ -486,10 +504,17 @@ def dynamodb_upload_data(
     batch_size = kwargs.get("batch_size", 25)
 
     ## Upload data in batches
-    with table.batch_writer(
-        batch_size=batch_size,
-        overwrite_by_pkeys=kwargs.get("overwrite_by_pkeys", ["id"]),
-    ) as batch:
-        ### Upload each item
-        for item in items:
-            batch.put_item(Item=item)
+    try:
+        with table.batch_writer(
+            batch_size=batch_size,
+            overwrite_by_pkeys=kwargs.get("overwrite_by_pkeys", ["id"]),
+        ) as batch:
+            ### Upload each item
+            for item in items:
+                batch.put_item(Item=item)
+    except (BotoCoreError, ClientError) as e:
+        logger.error(
+            f"DynamoDB upload failed for table '{table_name}' -> "
+            f"{type(e).__name__}: {e}"
+        )
+        raise

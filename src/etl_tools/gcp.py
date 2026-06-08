@@ -1,11 +1,22 @@
 # Import modules
-import os
-import pandas as pd
 import json
+import logging
+import os  # noqa: F401  (kept for backwards compatibility of public surface)
 import time
-from google.cloud import storage, bigquery
+
+# Import third-party modules
+import pandas as pd
+from google.api_core import exceptions as gcp_exceptions
+from google.cloud import bigquery, storage
 from googleapiclient import discovery
+from googleapiclient.errors import HttpError
+
+# Import submodules
 from io import BytesIO
+
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -369,11 +380,10 @@ def bigquery_to_gcs(
         # For wildcard paths, verify the extension matches the format
         path_format = _get_file_format(gcs_file_path)
         if path_format != file_format:
-            print(
-                f"WARNING: Wildcard path format '{path_format}' doesn't match file_format '{file_format}'."
-            )
-            print(
-                f"BigQuery will export in '{path_format}' format based on the file extension."
+            logger.warning(
+                f"Wildcard path format '{path_format}' doesn't match "
+                f"file_format '{file_format}'. BigQuery will export in "
+                f"'{path_format}' format based on the file extension."
             )
 
     ## Create extract job config
@@ -400,13 +410,30 @@ def bigquery_to_gcs(
             setattr(extract_config, key, value)
 
     ## Create and run extract job
-    print(f"Exporting to: {gcs_file_path}")
-    print(f"Format (from extension): {_get_file_format(gcs_file_path)}")
+    logger.info(f"Exporting to: {gcs_file_path}")
+    logger.info(f"Format (from extension): {_get_file_format(gcs_file_path)}")
 
-    extract_job = bq_client.extract_table(
-        table_id, gcs_file_path, job_config=extract_config
-    )
-    extract_job.result()
+    try:
+        extract_job = bq_client.extract_table(
+            table_id, gcs_file_path, job_config=extract_config
+        )
+        # ``result()`` raises ``google.api_core.exceptions.GoogleAPIError`` /
+        # ``BadRequest`` when the table/schema does not exist or the job
+        # fails for any other reason. We log the failure with full context
+        # before propagating so the caller can react.
+        extract_job.result()
+    except gcp_exceptions.GoogleAPIError as e:
+        logger.error(
+            f"BigQuery extract job failed for table '{table_id}' -> "
+            f"{type(e).__name__}: {e}"
+        )
+        raise
+
+    if extract_job.errors:
+        logger.error(
+            f"BigQuery extract job for '{table_id}' completed with errors: "
+            f"{extract_job.errors}"
+        )
 
     return extract_job
 
@@ -491,10 +518,23 @@ def gcs_to_bigquery(
             setattr(load_config, key, value)
 
     # Create and run load job
-    load_job = bq_client.load_table_from_uri(
-        gcs_file_path, table_id, job_config=load_config
-    )
-    load_job.result()
+    try:
+        load_job = bq_client.load_table_from_uri(
+            gcs_file_path, table_id, job_config=load_config
+        )
+        load_job.result()
+    except gcp_exceptions.GoogleAPIError as e:
+        logger.error(
+            f"BigQuery load job failed for table '{table_id}' from "
+            f"'{gcs_file_path}' -> {type(e).__name__}: {e}"
+        )
+        raise
+
+    if load_job.errors:
+        logger.error(
+            f"BigQuery load job for '{table_id}' completed with errors: "
+            f"{load_job.errors}"
+        )
 
     return load_job
 
@@ -552,7 +592,14 @@ def cloud_sql_to_gcs(
     request = service.instances().export(
         project=project_id, instance=instance_id, body=request_body
     )
-    response = request.execute()
+    try:
+        response = request.execute()
+    except HttpError as e:
+        logger.error(
+            f"Cloud SQL export request failed for instance '{instance_id}' -> "
+            f"HTTP {e.resp.status}: {e}"
+        )
+        raise
     operation_id = response["name"]
 
     if not wait_for_completion:
@@ -575,7 +622,12 @@ def cloud_sql_to_gcs(
         op_response = op_request.execute()
         if op_response["status"] == "DONE":
             if "error" in op_response:
-                raise Exception(f"Export failed: {op_response['error']}")
+                logger.error(
+                    f"Cloud SQL export failed: {op_response['error']}"
+                )
+                raise RuntimeError(
+                    f"Cloud SQL export failed: {op_response['error']}"
+                )
             return {
                 "operation_id": operation_id,
                 "operation_type": "export",
@@ -637,7 +689,14 @@ def gcs_to_cloud_sql(
     request = service.instances().import_(
         project=project_id, instance=instance_id, body=request_body
     )
-    response = request.execute()
+    try:
+        response = request.execute()
+    except HttpError as e:
+        logger.error(
+            f"Cloud SQL import request failed for instance '{instance_id}' -> "
+            f"HTTP {e.resp.status}: {e}"
+        )
+        raise
     operation_id = response["name"]
 
     if not wait_for_completion:
@@ -660,7 +719,12 @@ def gcs_to_cloud_sql(
         op_response = op_request.execute()
         if op_response["status"] == "DONE":
             if "error" in op_response:
-                raise Exception(f"Import failed: {op_response['error']}")
+                logger.error(
+                    f"Cloud SQL import failed: {op_response['error']}"
+                )
+                raise RuntimeError(
+                    f"Cloud SQL import failed: {op_response['error']}"
+                )
             return {
                 "operation_id": operation_id,
                 "operation_type": "import",
