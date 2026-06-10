@@ -172,8 +172,8 @@ class ExtractDeleteAndLoad(object):
             for key, val in self.configs_dict[cfg_key].items():
                 parts = val.split("_")
                 self.conn_suff_dict[p_name][key] = parts[-1]
-                self.conn_type_dict[p_name][key] = parts[0]
-                self.conn_info_dict[p_name][key] = self.connections_dict[val]
+                self.conn_type_dict[p_name][key] = parts[0].lower()
+                self.conn_info_dict[p_name][key] = self.connections_dict[val.lower()]
 
         # Validate connection types
         for process, type_map in self.conn_type_dict.items():

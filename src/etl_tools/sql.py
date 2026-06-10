@@ -161,10 +161,12 @@ def resolve_type_class(
 
     Resolution order:
 
-    1. Look up ``name`` in ``mapping`` (defaults to :data:`SQLALCHEMY_DTYPES`).
-    2. If not found and ``name`` contains a dot, attempt
-       :func:`resolve_sqlalchemy_path` (e.g. ``"sqlalchemy.types.String"``).
-    3. Otherwise raise :class:`ValueError`.
+    1. Exact lookup of ``name`` in ``mapping`` (defaults to :data:`SQLALCHEMY_DTYPES`).
+    2. Case-insensitive lookup in ``mapping`` for simple (non-dotted) names.
+    3. If ``name`` contains a dot, attempt :func:`resolve_sqlalchemy_path`
+       (e.g. ``"sqlalchemy.types.String"``). Dotted paths remain case-sensitive
+       because Python attribute access is case-sensitive.
+    4. Otherwise raise :class:`ValueError`.
 
     Parameters:
         name (str): Simple key (e.g. ``"String"``) or dotted path
@@ -186,11 +188,19 @@ def resolve_type_class(
 
     name = name.strip()
 
-    # 1. Mapping lookup
+    # 1. Exact mapping lookup
     if name in mapping:
         return mapping[name]
 
-    # 2. Dotted-path fallback
+    # 1b. Case-insensitive mapping lookup (simple names only; dotted paths keep
+    #     their original casing because Python attribute access is case-sensitive)
+    if "." not in name:
+        name_lower = name.lower()
+        for k, v in mapping.items():
+            if k.lower() == name_lower:
+                return v
+
+    # 2. Dotted-path fallback (still case-sensitive — Python attrs are)
     if "." in name:
         try:
             resolved = resolve_sqlalchemy_path(name)
