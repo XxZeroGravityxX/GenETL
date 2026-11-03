@@ -2,25 +2,27 @@
 
 [← Back to documentation index](README.md)
 
-GenETL ships focused BigQuery load tests in `tests/test_gcs_to_bigquery.py`.
-They use real SDK configuration/job classes and a simulated BigQuery client;
+GenETL ships focused BigQuery load and export tests in
+`tests/test_gcs_to_bigquery.py` and `tests/test_bigquery_to_gcs.py`.
+They use real SDK configuration/job classes and simulated BigQuery RPCs;
 no cloud credentials or live data are required. The remaining sections outline
 recommended coverage for other modules.
 
-## BigQuery load retries
+## BigQuery load and export retries
 
 Install only the dependencies used by the GCP module and run its tests:
 
 ```bash
 pip install pytest pandas google-cloud-bigquery==3.25.0 google-cloud-storage google-api-python-client
-python -m pytest -q tests/test_gcs_to_bigquery.py
+python -m pytest -q tests/
 ```
 
 The tests load `gcp.py` directly to avoid importing unrelated database and AWS
 dependencies through the package facade. Coverage includes concurrent deliveries,
 lost submission responses, completed-job retries, conflicting requests, remote
-failures, CSV configuration and the existing behavior without a job ID. Run the
-same suite with the current BigQuery SDK when changing the supported SDK range.
+failures, CSV load options, supported export formats, positional arguments and
+the existing behavior without a job ID. Run the same suite with the current
+BigQuery SDK when changing the supported SDK range.
 
 ## Recommended stack
 

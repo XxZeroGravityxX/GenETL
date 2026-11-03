@@ -338,6 +338,115 @@ def gcs_delete_files(
 # ============================================================================
 
 
+def _matches_job_configuration(expected, actual):
+    """Match requested fields while allowing server defaults and REST int64 strings."""
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and all(
+            _matches_job_configuration(value, actual.get(key))
+            for key, value in expected.items()
+        )
+    if isinstance(expected, list):
+        return (
+            isinstance(actual, list)
+            and len(expected) == len(actual)
+            and all(
+                _matches_job_configuration(left, right)
+                for left, right in zip(expected, actual)
+            )
+        )
+    if type(expected) is int and isinstance(actual, str):
+        return str(expected) == actual
+    return type(expected) is type(actual) and expected == actual
+
+
+def _run_bigquery_job(
+    bq_client, table_id, gcs_file_path, job_config, job_id=None, location=None
+):
+    """Submit a load or extract job and verify deterministic retries."""
+    ## 1. Select operation
+    if isinstance(job_config, bigquery.LoadJobConfig):
+        job_type = "load"
+        submit = bq_client.load_table_from_uri
+        source, destination = gcs_file_path, table_id
+    else:
+        job_type = "extract"
+        submit = bq_client.extract_table
+        source, destination = table_id, gcs_file_path
+
+    ## 2. Configure submission
+    submission_args = {}
+    if location is not None:
+        submission_args["location"] = location
+    if job_id is not None:
+        ### 2.1. Merge load defaults
+        default_config = (
+            getattr(bq_client, "default_load_job_config", None)
+            if job_type == "load"
+            else None
+        )
+        if default_config is not None:
+            defaults = default_config.to_api_repr()
+            configured = job_config.to_api_repr()
+            job_config = bigquery.LoadJobConfig.from_api_repr(
+                {
+                    **defaults,
+                    **configured,
+                    "load": {**defaults.get("load", {}), **configured["load"]},
+                }
+            )
+
+        ### 2.2. Resolve location and job identity
+        table = bigquery.TableReference.from_string(table_id)
+        location = (
+            location
+            or bq_client.get_dataset(f"{table.project}.{table.dataset_id}").location
+        )
+        submission_args.update(job_id=job_id, location=location)
+        expected = job_config.to_api_repr()
+        if job_type == "load":
+            expected["load"].update(
+                sourceUris=[gcs_file_path], destinationTable=table.to_api_repr()
+            )
+        else:
+            expected["extract"].update(
+                sourceTable=table.to_api_repr(), destinationUris=[gcs_file_path]
+            )
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {"location": location, "configuration": expected},
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()[:63]
+        job_config.labels = {
+            **(job_config.labels or {}),
+            f"genetl_{job_type}_fingerprint": fingerprint,
+        }
+        expected["labels"] = job_config.labels
+
+    ## 3. Submit or retrieve matching job
+    try:
+        job = submit(source, destination, job_config=job_config, **submission_args)
+    except gcp_exceptions.Conflict:
+        if job_id is None:
+            raise
+        job = bq_client.get_job(job_id, project=bq_client.project, location=location)
+        actual = job.to_api_repr().get("configuration", {})
+        if (
+            job.job_id != job_id
+            or job.project != bq_client.project
+            or job.location != location
+            or not _matches_job_configuration(expected, actual)
+        ):
+            raise ValueError(
+                f"Existing {job_type} job does not match this request"
+            ) from None
+
+    ## 4. Await completion
+    job.result()
+    return job
+
+
 def bigquery_to_gcs(
     project_id,
     dataset_id,
@@ -346,6 +455,8 @@ def bigquery_to_gcs(
     file_format="csv",
     bq_client=None,
     print_header=True,
+    job_id=None,
+    location=None,
     **kwargs,
 ):
     """
@@ -361,24 +472,36 @@ def bigquery_to_gcs(
         bq_client: google.cloud.bigquery.Client. Optional. BigQuery client.
         print_header: bool. Include column headers in export (CSV only). Default True.
                       Set to False to exclude column names from CSV file.
-        **kwargs: Additional arguments for extract_table job (e.g., compression, field_delimiter).
+        job_id: str. Optional stable ID for retry-safe exports.
+        location: str. Optional job location; defaults to the source dataset
+                  when job_id is supplied.
+        **kwargs: Additional ExtractJobConfig options (compression, field_delimiter).
+
+    Reuse an ID only for retries of one logical export. A completed job is reused
+    even if its source table later changes; use a new ID and output path for new data.
 
     Returns:
         job: google.cloud.bigquery.ExtractJob. BigQuery extract job result.
     """
+    ## 1. Configure client and source
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
     file_format = file_format.lower()
+    if job_id is not None:
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise ValueError("job_id must be a nonempty string")
+        if file_format not in {"csv", "json", "parquet", "avro"}:
+            raise ValueError(f"Unsupported export format: {file_format}")
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    ## Ensure destination path has correct file extension (unless using wildcard for multi-file export)
+    ## 2. Resolve destination path
     if "*" not in gcs_file_path:
         gcs_file_path = _ensure_file_extension(gcs_file_path, file_format)
     else:
-        # For wildcard paths, verify the extension matches the format
+        ### 2.1. Check wildcard extension
         path_format = _get_file_format(gcs_file_path)
         if path_format != file_format:
             logger.warning(
@@ -387,10 +510,10 @@ def bigquery_to_gcs(
                 f"'{path_format}' format based on the file extension."
             )
 
-    ## Create extract job config
+    ## 3. Configure extract job
     extract_config = bigquery.ExtractJobConfig()
 
-    ## Set destination format
+    ### 3.1. Set destination format
     format_map = {
         "csv": bigquery.DestinationFormat.CSV,
         "json": bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON,
@@ -401,28 +524,31 @@ def bigquery_to_gcs(
         file_format, bigquery.DestinationFormat.CSV
     )
 
-    ## Set print_header for CSV format
+    ### 3.2. Set CSV headers
     if file_format.lower() == "csv":
         extract_config.print_header = print_header
 
-    ## Apply additional kwargs to extract config
+    ### 3.3. Apply additional options
     for key, value in kwargs.items():
-        if hasattr(extract_config, key):
+        if job_id is not None:
+            attribute = getattr(type(extract_config), key, None)
+            if (
+                key.startswith("_")
+                or key == "destination_format"
+                or not isinstance(attribute, property)
+                or attribute.fset is None
+            ):
+                raise ValueError(f"Unsupported extract option: {key}")
+        if job_id is not None or hasattr(extract_config, key):
             setattr(extract_config, key, value)
 
-    ## Create and run extract job
+    ## 4. Execute extract job
     logger.info(f"Exporting to: {gcs_file_path}")
     logger.info(f"Format (from extension): {_get_file_format(gcs_file_path)}")
-
     try:
-        extract_job = bq_client.extract_table(
-            table_id, gcs_file_path, job_config=extract_config
+        extract_job = _run_bigquery_job(
+            bq_client, table_id, gcs_file_path, extract_config, job_id, location
         )
-        # ``result()`` raises ``google.api_core.exceptions.GoogleAPIError`` /
-        # ``BadRequest`` when the table/schema does not exist or the job
-        # fails for any other reason. We log the failure with full context
-        # before propagating so the caller can react.
-        extract_job.result()
     except gcp_exceptions.GoogleAPIError as e:
         logger.error(
             f"BigQuery extract job failed for table '{table_id}' -> "
@@ -430,6 +556,7 @@ def bigquery_to_gcs(
         )
         raise
 
+    ## 5. Return result
     if extract_job.errors:
         logger.error(
             f"BigQuery extract job for '{table_id}' completed with errors: "
@@ -437,27 +564,6 @@ def bigquery_to_gcs(
         )
 
     return extract_job
-
-
-def _matches_load_configuration(expected, actual):
-    """Match requested fields while allowing server defaults and REST int64 strings."""
-    if isinstance(expected, dict):
-        return isinstance(actual, dict) and all(
-            _matches_load_configuration(value, actual.get(key))
-            for key, value in expected.items()
-        )
-    if isinstance(expected, list):
-        return (
-            isinstance(actual, list)
-            and len(expected) == len(actual)
-            and all(
-                _matches_load_configuration(left, right)
-                for left, right in zip(expected, actual)
-            )
-        )
-    if type(expected) is int and isinstance(actual, str):
-        return str(expected) == actual
-    return type(expected) is type(actual) and expected == actual
 
 
 def gcs_to_bigquery(
@@ -469,7 +575,6 @@ def gcs_to_bigquery(
     write_disposition="WRITE_TRUNCATE",
     autodetect=True,
     bq_client=None,
-    *,
     job_id=None,
     location=None,
     **kwargs,
@@ -501,6 +606,7 @@ def gcs_to_bigquery(
     Returns:
         job: google.cloud.bigquery.LoadJob. BigQuery load job.
     """
+    ## 1. Configure client and destination
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
@@ -516,10 +622,10 @@ def gcs_to_bigquery(
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    # Create load job config
+    ## 2. Configure load job
     load_config = bigquery.LoadJobConfig()
 
-    # Set source format
+    ### 2.1. Set source format
     format_map = {
         "csv": bigquery.SourceFormat.CSV,
         "json": bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
@@ -530,16 +636,13 @@ def gcs_to_bigquery(
     }
     load_config.source_format = format_map.get(file_format, bigquery.SourceFormat.CSV)
 
-    ## Skip leading rows
+    ### 2.2. Set CSV rows and schema detection
     if file_format == "csv":
-        load_config.skip_leading_rows = (
-            0 if autodetect else 1
-        )  # If autodetect is True, don't skip the first row so BigQuery can use it for column names
+        load_config.skip_leading_rows = 0 if autodetect else 1
 
-    ## Set autodetect for schema inference (especially useful for CSV)
     load_config.autodetect = autodetect
 
-    ## Convert string write_disposition to enum if needed
+    ### 2.3. Set write disposition
     if isinstance(write_disposition, str):
         write_disposition_map = {
             "WRITE_TRUNCATE": bigquery.WriteDisposition.WRITE_TRUNCATE,
@@ -551,7 +654,7 @@ def gcs_to_bigquery(
         )
     load_config.write_disposition = write_disposition
 
-    # Apply additional kwargs to load config
+    ### 2.4. Apply additional options
     for key, value in kwargs.items():
         if job_id is not None:
             attribute = getattr(type(load_config), key, None)
@@ -565,71 +668,11 @@ def gcs_to_bigquery(
         if job_id is not None or hasattr(load_config, key):
             setattr(load_config, key, value)
 
-    # Bind a deterministic ID to the requested source, destination and options.
-    submission_args = {}
-    if location is not None:
-        submission_args["location"] = location
-    if job_id is not None:
-        # Include client defaults in the identity, matching the SDK's merge rules.
-        default_config = getattr(bq_client, "default_load_job_config", None)
-        if default_config is not None:
-            defaults = default_config.to_api_repr()
-            configured = load_config.to_api_repr()
-            load_config = bigquery.LoadJobConfig.from_api_repr(
-                {
-                    **defaults,
-                    **configured,
-                    "load": {**defaults.get("load", {}), **configured["load"]},
-                }
-            )
-        destination = bigquery.TableReference.from_string(table_id)
-        location = (
-            location
-            or bq_client.get_dataset(
-                f"{destination.project}.{destination.dataset_id}"
-            ).location
-        )
-        submission_args.update(job_id=job_id, location=location)
-        expected = load_config.to_api_repr()
-        expected["load"].update(
-            sourceUris=[gcs_file_path], destinationTable=destination.to_api_repr()
-        )
-        fingerprint = hashlib.sha256(
-            json.dumps(
-                {"location": location, "configuration": expected},
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode()
-        ).hexdigest()[:63]
-        load_config.labels = {
-            **(load_config.labels or {}),
-            "genetl_load_fingerprint": fingerprint,
-        }
-        expected["labels"] = load_config.labels
-
-    # Create and run load job
+    ## 3. Execute load job
     try:
-        try:
-            load_job = bq_client.load_table_from_uri(
-                gcs_file_path, table_id, job_config=load_config, **submission_args
-            )
-        except gcp_exceptions.Conflict:
-            if job_id is None:
-                raise
-            load_job = bq_client.get_job(
-                job_id, project=bq_client.project, location=location
-            )
-            actual = load_job.to_api_repr().get("configuration", {})
-            if (
-                load_job.job_id != job_id
-                or load_job.project != bq_client.project
-                or load_job.location != location
-                or not _matches_load_configuration(expected, actual)
-            ):
-                raise ValueError(
-                    "Existing load job does not match this request"
-                ) from None
-        load_job.result()
+        load_job = _run_bigquery_job(
+            bq_client, table_id, gcs_file_path, load_config, job_id, location
+        )
     except gcp_exceptions.GoogleAPIError as e:
         logger.error(
             f"BigQuery load job failed for table '{table_id}' from "
@@ -637,6 +680,7 @@ def gcs_to_bigquery(
         )
         raise
 
+    ## 4. Return result
     if load_job.errors:
         logger.error(
             f"BigQuery load job for '{table_id}' completed with errors: "

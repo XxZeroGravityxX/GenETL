@@ -204,6 +204,24 @@ def test_explicit_location_avoids_dataset_lookup(client):
     assert client.get_calls == [("export_output", "billing-project", "EU")]
 
 
+def test_job_id_and_location_accept_positional_arguments(client):
+    job = gcp.gcs_to_bigquery(
+        "gs://example-bucket/source.csv",
+        "data-project",
+        "results",
+        "output",
+        "csv",
+        "WRITE_APPEND",
+        False,
+        client,
+        "positional_load",
+        "EU",
+    )
+    assert job.job_id == "positional_load"
+    assert job.location == "EU"
+    client.get_dataset.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "file_format,source_format",
     [

@@ -115,6 +115,37 @@ their previous behavior; supplying `location` now forwards it to BigQuery. Job
 IDs are currently supported only for CSV; other formats with an ID and unknown
 CSV options fail explicitly.
 
+### Retrying BigQuery exports to GCS
+
+`bigquery_to_gcs()` accepts the same optional `job_id` and `location` arguments
+for CSV, JSON, Parquet and Avro exports:
+
+```python
+from etl_tools.gcp import bigquery_to_gcs
+
+job = bigquery_to_gcs(
+    "example-project",
+    "analytics",
+    "events_snapshot_42",
+    "gs://example-bucket/exports/run-42-*.parquet",
+    file_format="parquet",
+    job_id="events_export_42",
+    location="US",
+)
+```
+
+Retries reuse the original extract job after checking its source table,
+destination URIs, location and extract options. They do not start another export
+or conceal a failed job. Omitted locations are read from the source dataset,
+requiring the same metadata-read and job-read access described above. The reserved
+identity label is `genetl_extract_fingerprint`.
+
+A reused ID refers to the original export even if the source table has changed.
+Use a stable source snapshot for one logical export, and use a new ID and output
+path for new data. Callers that omit `job_id` retain the SDK-generated-ID behavior.
+Both helpers accept `job_id` and `location` as positional or keyword arguments
+after their existing parameters.
+
 ### Other helpers
 
 All high-level helpers (`sql_read_data`, `sql_upload_data`, `sql_copy_data`,
