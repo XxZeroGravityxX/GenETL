@@ -15,7 +15,6 @@ from googleapiclient.errors import HttpError
 # Import submodules
 from io import BytesIO
 
-
 # Module-level logger
 logger = logging.getLogger(__name__)
 
@@ -483,25 +482,31 @@ def bigquery_to_gcs(
     Returns:
         job: google.cloud.bigquery.ExtractJob. BigQuery extract job result.
     """
-    ## 1. Configure client and source
+
+    ## Configure client
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
+    ## Determine file format if not explicitly provided
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
     file_format = file_format.lower()
+
+    ## Validate job_id and file format
     if job_id is not None:
         if not isinstance(job_id, str) or not job_id.strip():
             raise ValueError("job_id must be a nonempty string")
         if file_format not in {"csv", "json", "parquet", "avro"}:
             raise ValueError(f"Unsupported export format: {file_format}")
+
+    ## Construct fully qualified table ID
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    ## 2. Resolve destination path
+    ## Ensure destination path has correct file extension (unless using wildcard for multi-file export)
     if "*" not in gcs_file_path:
         gcs_file_path = _ensure_file_extension(gcs_file_path, file_format)
     else:
-        ### 2.1. Check wildcard extension
+        # For wildcard paths, verify the extension matches the format
         path_format = _get_file_format(gcs_file_path)
         if path_format != file_format:
             logger.warning(
@@ -510,10 +515,10 @@ def bigquery_to_gcs(
                 f"'{path_format}' format based on the file extension."
             )
 
-    ## 3. Configure extract job
+    ## Create extract job config
     extract_config = bigquery.ExtractJobConfig()
 
-    ### 3.1. Set destination format
+    ## Set destination format
     format_map = {
         "csv": bigquery.DestinationFormat.CSV,
         "json": bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON,
@@ -524,11 +529,11 @@ def bigquery_to_gcs(
         file_format, bigquery.DestinationFormat.CSV
     )
 
-    ### 3.2. Set CSV headers
+    ## Set print_header for CSV format
     if file_format.lower() == "csv":
         extract_config.print_header = print_header
 
-    ### 3.3. Apply additional options
+    ## Apply additional kwargs to extract config
     for key, value in kwargs.items():
         if job_id is not None:
             attribute = getattr(type(extract_config), key, None)
@@ -542,9 +547,10 @@ def bigquery_to_gcs(
         if job_id is not None or hasattr(extract_config, key):
             setattr(extract_config, key, value)
 
-    ## 4. Execute extract job
+    ## Create and run extract job
     logger.info(f"Exporting to: {gcs_file_path}")
     logger.info(f"Format (from extension): {_get_file_format(gcs_file_path)}")
+
     try:
         extract_job = _run_bigquery_job(
             bq_client, table_id, gcs_file_path, extract_config, job_id, location
@@ -556,7 +562,6 @@ def bigquery_to_gcs(
         )
         raise
 
-    ## 5. Return result
     if extract_job.errors:
         logger.error(
             f"BigQuery extract job for '{table_id}' completed with errors: "
@@ -606,26 +611,30 @@ def gcs_to_bigquery(
     Returns:
         job: google.cloud.bigquery.LoadJob. BigQuery load job.
     """
-    ## 1. Configure client and destination
+
+    ## Configure client
     if bq_client is None:
         bq_client = bigquery.Client(project=project_id)
 
+    ## Determine file format if not explicitly provided
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
     file_format = file_format.lower()
 
+    ## Validate job_id and file format if job_id is provided
     if job_id is not None:
         if not isinstance(job_id, str) or not job_id.strip():
             raise ValueError("job_id must be a nonempty string")
         if file_format != "csv":
             raise ValueError("Deterministic job_id is supported for CSV loads only")
 
+    ## Construct fully qualified table ID
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
-    ## 2. Configure load job
+    ## Create load job config
     load_config = bigquery.LoadJobConfig()
 
-    ### 2.1. Set source format
+    ## Set source format
     format_map = {
         "csv": bigquery.SourceFormat.CSV,
         "json": bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
@@ -636,13 +645,16 @@ def gcs_to_bigquery(
     }
     load_config.source_format = format_map.get(file_format, bigquery.SourceFormat.CSV)
 
-    ### 2.2. Set CSV rows and schema detection
+    ## Skip leading rows
     if file_format == "csv":
-        load_config.skip_leading_rows = 0 if autodetect else 1
+        load_config.skip_leading_rows = (
+            0 if autodetect else 1
+        )  # If autodetect is True, don't skip the first row so BigQuery can use it for column names
 
+    ## Set autodetect for schema inference (especially useful for CSV)
     load_config.autodetect = autodetect
 
-    ### 2.3. Set write disposition
+    ## Convert string write_disposition to enum if needed
     if isinstance(write_disposition, str):
         write_disposition_map = {
             "WRITE_TRUNCATE": bigquery.WriteDisposition.WRITE_TRUNCATE,
@@ -654,7 +666,7 @@ def gcs_to_bigquery(
         )
     load_config.write_disposition = write_disposition
 
-    ### 2.4. Apply additional options
+    ## Apply additional kwargs to load config
     for key, value in kwargs.items():
         if job_id is not None:
             attribute = getattr(type(load_config), key, None)
@@ -668,7 +680,7 @@ def gcs_to_bigquery(
         if job_id is not None or hasattr(load_config, key):
             setattr(load_config, key, value)
 
-    ## 3. Execute load job
+    ## Create and run load job
     try:
         load_job = _run_bigquery_job(
             bq_client, table_id, gcs_file_path, load_config, job_id, location
@@ -680,7 +692,6 @@ def gcs_to_bigquery(
         )
         raise
 
-    ## 4. Return result
     if load_job.errors:
         logger.error(
             f"BigQuery load job for '{table_id}' completed with errors: "
@@ -773,12 +784,8 @@ def cloud_sql_to_gcs(
         op_response = op_request.execute()
         if op_response["status"] == "DONE":
             if "error" in op_response:
-                logger.error(
-                    f"Cloud SQL export failed: {op_response['error']}"
-                )
-                raise RuntimeError(
-                    f"Cloud SQL export failed: {op_response['error']}"
-                )
+                logger.error(f"Cloud SQL export failed: {op_response['error']}")
+                raise RuntimeError(f"Cloud SQL export failed: {op_response['error']}")
             return {
                 "operation_id": operation_id,
                 "operation_type": "export",
@@ -870,12 +877,8 @@ def gcs_to_cloud_sql(
         op_response = op_request.execute()
         if op_response["status"] == "DONE":
             if "error" in op_response:
-                logger.error(
-                    f"Cloud SQL import failed: {op_response['error']}"
-                )
-                raise RuntimeError(
-                    f"Cloud SQL import failed: {op_response['error']}"
-                )
+                logger.error(f"Cloud SQL import failed: {op_response['error']}")
+                raise RuntimeError(f"Cloud SQL import failed: {op_response['error']}")
             return {
                 "operation_id": operation_id,
                 "operation_type": "import",
