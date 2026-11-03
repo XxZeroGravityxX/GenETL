@@ -1,4 +1,5 @@
 # Import modules
+import hashlib
 import json
 import logging
 import os  # noqa: F401  (kept for backwards compatibility of public surface)
@@ -438,6 +439,27 @@ def bigquery_to_gcs(
     return extract_job
 
 
+def _matches_load_configuration(expected, actual):
+    """Match requested fields while allowing server defaults and REST int64 strings."""
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and all(
+            _matches_load_configuration(value, actual.get(key))
+            for key, value in expected.items()
+        )
+    if isinstance(expected, list):
+        return (
+            isinstance(actual, list)
+            and len(expected) == len(actual)
+            and all(
+                _matches_load_configuration(left, right)
+                for left, right in zip(expected, actual)
+            )
+        )
+    if type(expected) is int and isinstance(actual, str):
+        return str(expected) == actual
+    return type(expected) is type(actual) and expected == actual
+
+
 def gcs_to_bigquery(
     gcs_file_path,
     project_id,
@@ -447,6 +469,9 @@ def gcs_to_bigquery(
     write_disposition="WRITE_TRUNCATE",
     autodetect=True,
     bq_client=None,
+    *,
+    job_id=None,
+    location=None,
     **kwargs,
 ):
     """
@@ -463,7 +488,15 @@ def gcs_to_bigquery(
         write_disposition: str. Write disposition (WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY). Default 'WRITE_TRUNCATE'.
         autodetect: bool. Auto-detect schema from data (useful for CSV). Default True.
         bq_client: google.cloud.bigquery.Client. Optional. BigQuery client.
-        **kwargs: Additional arguments for load_table_from_uri job.
+        job_id: str. Optional stable ID for retry-safe CSV loads. Repeated calls
+                await the matching existing job; mismatches and job failures raise.
+        location: str. Optional job location. With job_id, defaults to the
+                  destination dataset's location.
+        **kwargs: Additional LoadJobConfig options. Unknown options are rejected
+                  when job_id is supplied and otherwise retain legacy behavior.
+
+    Keep the source object unchanged across retries and use a new job_id for each
+    new logical load. Job IDs deduplicate submissions, not changed object contents.
 
     Returns:
         job: google.cloud.bigquery.LoadJob. BigQuery load job.
@@ -474,6 +507,12 @@ def gcs_to_bigquery(
     if file_format is None:
         file_format = _get_file_format(gcs_file_path)
     file_format = file_format.lower()
+
+    if job_id is not None:
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise ValueError("job_id must be a nonempty string")
+        if file_format != "csv":
+            raise ValueError("Deterministic job_id is supported for CSV loads only")
 
     table_id = f"{project_id}.{dataset_id}.{table_id}"
 
@@ -514,14 +553,82 @@ def gcs_to_bigquery(
 
     # Apply additional kwargs to load config
     for key, value in kwargs.items():
-        if hasattr(load_config, key):
+        if job_id is not None:
+            attribute = getattr(type(load_config), key, None)
+            if (
+                key.startswith("_")
+                or key == "source_format"
+                or not isinstance(attribute, property)
+                or attribute.fset is None
+            ):
+                raise ValueError(f"Unsupported CSV load option: {key}")
+        if job_id is not None or hasattr(load_config, key):
             setattr(load_config, key, value)
+
+    # Bind a deterministic ID to the requested source, destination and options.
+    submission_args = {}
+    if location is not None:
+        submission_args["location"] = location
+    if job_id is not None:
+        # Include client defaults in the identity, matching the SDK's merge rules.
+        default_config = getattr(bq_client, "default_load_job_config", None)
+        if default_config is not None:
+            defaults = default_config.to_api_repr()
+            configured = load_config.to_api_repr()
+            load_config = bigquery.LoadJobConfig.from_api_repr(
+                {
+                    **defaults,
+                    **configured,
+                    "load": {**defaults.get("load", {}), **configured["load"]},
+                }
+            )
+        destination = bigquery.TableReference.from_string(table_id)
+        location = (
+            location
+            or bq_client.get_dataset(
+                f"{destination.project}.{destination.dataset_id}"
+            ).location
+        )
+        submission_args.update(job_id=job_id, location=location)
+        expected = load_config.to_api_repr()
+        expected["load"].update(
+            sourceUris=[gcs_file_path], destinationTable=destination.to_api_repr()
+        )
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                {"location": location, "configuration": expected},
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()[:63]
+        load_config.labels = {
+            **(load_config.labels or {}),
+            "genetl_load_fingerprint": fingerprint,
+        }
+        expected["labels"] = load_config.labels
 
     # Create and run load job
     try:
-        load_job = bq_client.load_table_from_uri(
-            gcs_file_path, table_id, job_config=load_config
-        )
+        try:
+            load_job = bq_client.load_table_from_uri(
+                gcs_file_path, table_id, job_config=load_config, **submission_args
+            )
+        except gcp_exceptions.Conflict:
+            if job_id is None:
+                raise
+            load_job = bq_client.get_job(
+                job_id, project=bq_client.project, location=location
+            )
+            actual = load_job.to_api_repr().get("configuration", {})
+            if (
+                load_job.job_id != job_id
+                or load_job.project != bq_client.project
+                or load_job.location != location
+                or not _matches_load_configuration(expected, actual)
+            ):
+                raise ValueError(
+                    "Existing load job does not match this request"
+                ) from None
         load_job.result()
     except gcp_exceptions.GoogleAPIError as e:
         logger.error(

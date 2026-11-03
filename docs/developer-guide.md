@@ -77,6 +77,46 @@ build\build.bat    # Windows
 
 ## Error handling
 
+### Retrying CSV loads into BigQuery
+
+`gcs_to_bigquery()` accepts an optional stable `job_id` and a job `location`:
+
+```python
+from etl_tools.gcp import gcs_to_bigquery
+
+job = gcs_to_bigquery(
+    "gs://example-bucket/exports/run-42.csv",
+    "example-project",
+    "analytics",
+    "events",
+    file_format="csv",
+    write_disposition="WRITE_APPEND",
+    autodetect=False,
+    job_id="events_run_42",
+    location="US",
+    skip_leading_rows=0,
+    allow_quoted_newlines=True,
+    null_marker="\\N",
+)
+```
+
+Reuse the ID for retries of the same logical load and keep its source object
+unchanged. If BigQuery already accepted that ID, GenETL fetches the existing job
+in the same project and location, verifies its source, destination and load
+configuration, and waits for completion. A mismatch or failed job raises; GenETL
+does not generate a replacement ID automatically. The job carries a reserved
+`genetl_load_fingerprint` label to bind the request configuration to the ID.
+
+When omitted for a deterministic load, `location` is read from the destination
+dataset using the existing client. The caller therefore needs permission to read
+that dataset's metadata, or must supply its location explicitly. Callers must also
+be able to retrieve the original job on retries. Calls without `job_id` retain
+their previous behavior; supplying `location` now forwards it to BigQuery. Job
+IDs are currently supported only for CSV; other formats with an ID and unknown
+CSV options fail explicitly.
+
+### Other helpers
+
 All high-level helpers (`sql_read_data`, `sql_upload_data`, `sql_copy_data`,
 `read_data`, `upload_data`, etc.) now re-raise exceptions after logging.
 Callers should wrap these in try/except blocks to handle failures gracefully.
