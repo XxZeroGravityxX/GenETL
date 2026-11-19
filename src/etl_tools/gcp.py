@@ -431,6 +431,10 @@ def _run_bigquery_job(
             raise
         job = bq_client.get_job(job_id, project=bq_client.project, location=location)
         actual = job.to_api_repr().get("configuration", {})
+        # jobs.get can return a JSON number for the SDK's decimal string.
+        load = actual.get("load", {})
+        if type(load.get("skipLeadingRows")) is int:
+            load["skipLeadingRows"] = str(load["skipLeadingRows"])
         if (
             job.job_id != job_id
             or job.project != bq_client.project

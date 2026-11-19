@@ -113,12 +113,22 @@ def test_response_loss_after_acceptance_does_not_repeat_append(client):
     job.result.assert_called_once()
 
 
-def test_completed_retry_normalizes_rest_numeric_strings(client):
-    first = request(client)
-    assert first.to_api_repr()["configuration"]["load"]["skipLeadingRows"] == "0"
-    assert request(client) is first
+@pytest.mark.parametrize("stored_rows", ["0", 0, "2", 2])
+def test_completed_retry_accepts_both_rest_row_count_types(client, stored_rows):
+    first = request(client, skip_leading_rows=int(stored_rows))
+    first._properties["configuration"]["load"]["skipLeadingRows"] = stored_rows
+    assert request(client, skip_leading_rows=int(stored_rows)) is first
     assert client.accepted == 1
     assert first.result.call_count == 2
+
+
+@pytest.mark.parametrize("stored_rows", [1, False, "00"])
+def test_completed_retry_rejects_different_or_invalid_row_counts(client, stored_rows):
+    first = request(client)
+    first._properties["configuration"]["load"]["skipLeadingRows"] = stored_rows
+    with pytest.raises(ValueError, match="does not match"):
+        request(client)
+    first.result.assert_called_once()
 
 
 @pytest.mark.parametrize(
